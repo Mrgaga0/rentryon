@@ -335,7 +335,8 @@ export default function ProductDetail() {
                           <FormLabel>선호 상담 시간 (선택)</FormLabel>
                           <FormControl>
                             <select 
-                              {...field} 
+                              {...field}
+                              value={field.value || ""}
                               className="w-full px-3 py-2 border border-input rounded-md bg-background"
                               data-testid="select-preferred-time"
                             >
@@ -359,7 +360,8 @@ export default function ProductDetail() {
                           <FormLabel>문의사항 (선택)</FormLabel>
                           <FormControl>
                             <Textarea 
-                              {...field} 
+                              {...field}
+                              value={field.value || ""}
                               placeholder="추가 문의사항이 있으시면 적어주세요"
                               rows={3}
                               data-testid="textarea-consultation-message"
