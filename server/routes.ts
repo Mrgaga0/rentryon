@@ -4,7 +4,9 @@ import { storage } from "./storage";
 import { getProductRecommendations, processChatMessage } from "./gemini";
 import {
   insertLeadSchema,
-  insertChatMessageSchema
+  insertChatMessageSchema,
+  insertProductSchema,
+  insertCategorySchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -62,6 +64,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching product:", error);
       res.status(500).json({ message: "Failed to fetch product" });
+    }
+  });
+
+  // Admin - Create product
+  app.post('/api/products', async (req, res) => {
+    try {
+      const productData = insertProductSchema.parse(req.body);
+      const product = await storage.createProduct(productData);
+      res.status(201).json(product);
+    } catch (error) {
+      console.error("Error creating product:", error);
+      if (error instanceof Error && error.name === 'ZodError') {
+        return res.status(400).json({ message: "유효하지 않은 제품 정보입니다.", errors: (error as any).errors });
+      }
+      res.status(500).json({ message: "제품 생성에 실패했습니다." });
+    }
+  });
+
+  // Admin - Create category
+  app.post('/api/categories', async (req, res) => {
+    try {
+      const categoryData = insertCategorySchema.parse(req.body);
+      const category = await storage.createCategory(categoryData);
+      res.status(201).json(category);
+    } catch (error) {
+      console.error("Error creating category:", error);
+      if (error instanceof Error && error.name === 'ZodError') {
+        return res.status(400).json({ message: "유효하지 않은 카테고리 정보입니다.", errors: (error as any).errors });
+      }
+      res.status(500).json({ message: "카테고리 생성에 실패했습니다." });
     }
   });
 
