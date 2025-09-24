@@ -9,6 +9,7 @@ import Home from "@/pages/home";
 import Products from "@/pages/products";
 import ProductDetail from "@/pages/product-detail";
 import Chat from "@/pages/chat";
+import Admin from "@/pages/admin";
 
 function Router() {
   return (
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/products" component={Products} />
       <Route path="/products/:id" component={ProductDetail} />
       <Route path="/chat" component={Chat} />
+      <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
     </Switch>
   );

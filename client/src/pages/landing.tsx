@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Home, Search, Snowflake, ShirtIcon, Wind, Tv, Microwave, Bot, Truck, Shield, Facebook, Instagram, Youtube } from "lucide-react";
 import { motion } from "framer-motion";
+import Header from "@/components/header";
 
 export default function Landing() {
   const { toast } = useToast();
@@ -17,56 +18,7 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-backdrop-blur:bg-card/60">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Home className="text-primary text-2xl" data-testid="logo-icon" />
-              <h1 className="text-xl font-bold text-foreground">렌탈리움</h1>
-            </div>
-            
-            {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center space-x-6">
-              <a href="#" className="text-muted-foreground hover:text-foreground transition-colors" data-testid="nav-home">홈</a>
-              <a href="#" className="text-muted-foreground hover:text-foreground transition-colors" data-testid="nav-categories">카테고리</a>
-              <a href="#" className="text-muted-foreground hover:text-foreground transition-colors" data-testid="nav-support">고객센터</a>
-            </nav>
-            
-            {/* User Actions */}
-            <div className="flex items-center space-x-2">
-              <Link href="/home">
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                >
-                  <Button 
-                    variant="ghost" 
-                    className="hidden md:inline-flex"
-                    data-testid="button-browse-products"
-                  >
-                    제품 둘러보기
-                  </Button>
-                </motion.div>
-              </Link>
-              <Link href="/home">
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                >
-                  <Button 
-                    data-testid="button-start-consultation"
-                  >
-                    상담 시작하기
-                  </Button>
-                </motion.div>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-primary/10 to-secondary/10 py-8 md:py-12">
