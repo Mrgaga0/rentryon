@@ -589,23 +589,33 @@ async function mapExcelColumnsWithAI(
                     properties: {
                       columnMappings: {
                         type: "object",
+                        properties: {},
                         additionalProperties: {
                           type: "object",
                           properties: {
-                            field: { type: "string" },
+                            field: { 
+                              type: "string",
+                              enum: ["name", "nameKo", "brand", "monthlyPrice", "originalPrice", "categoryId", "descriptionKo", "rating"]
+                            },
                             transformer: { 
                               type: "string",
                               enum: ["number", "text", "category", "price"] 
                             },
-                            defaultValue: { type: "string" }
-                          }
+                            confidence: { type: "number" }
+                          },
+                          required: ["field", "transformer"]
                         }
                       },
                       categoryGuess: { type: "string" },
                       brandGuess: { type: "string" }
-                    }
+                    },
+                    required: ["columnMappings"]
                   },
-                  confidence: { type: "number" },
+                  confidence: { 
+                    type: "number",
+                    minimum: 0,
+                    maximum: 1
+                  },
                   notes: { type: "string" }
                 },
                 required: ["mapping", "confidence"]
