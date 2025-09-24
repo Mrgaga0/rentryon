@@ -81,7 +81,7 @@ export default function Home() {
 
       {/* Advertisement Banner Carousel */}
       <section className="relative overflow-hidden bg-gradient-to-r from-primary/5 to-secondary/5">
-        <div className="embla" ref={emblaRef}>
+        <div className="embla" ref={emblaRef} data-testid="carousel-advertisement">
           <div className="embla__container flex">
             {adBanners.map((banner) => (
               <motion.div 

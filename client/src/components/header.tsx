@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
-import { Home, Menu } from "lucide-react";
+import { Home, Menu, LogIn } from "lucide-react";
 import { Link } from "wouter";
+import { motion } from "framer-motion";
 import KakaoChatButton from "@/components/kakao-chat-button";
 
 export default function Header() {
@@ -29,11 +30,27 @@ export default function Header() {
             </Link>
           </nav>
           
-          {/* Consultation Actions */}
+          {/* Actions */}
           <div className="flex items-center space-x-2">
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            >
+              <Button 
+                variant="outline" 
+                size="sm"
+                data-testid="button-login"
+                className="hidden md:inline-flex"
+              >
+                <LogIn className="h-4 w-4 mr-2" />
+                로그인
+              </Button>
+            </motion.div>
+            
             <KakaoChatButton 
               variant="default" 
-              size="default"
+              size="sm"
               className="hidden md:inline-flex"
             />
             
