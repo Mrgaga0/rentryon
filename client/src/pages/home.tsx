@@ -154,6 +154,7 @@ export default function Home() {
               className="w-2 h-2 bg-white/50 rounded-full cursor-pointer"
               whileHover={{ scale: 1.2, backgroundColor: "rgba(255,255,255,0.8)" }}
               transition={{ duration: 0.2 }}
+              data-testid={`dot-ad-${index + 1}`}
             />
           ))}
         </div>
@@ -294,9 +295,27 @@ export default function Home() {
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl md:text-2xl font-bold text-foreground" data-testid="text-popular-title">인기 렌탈 상품</h3>
             <div className="flex space-x-2">
-              <Button variant="outline" size="sm">전체</Button>
-              <Button size="sm">주방가전</Button>
-              <Button variant="outline" size="sm">생활가전</Button>
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+              >
+                <Button variant="outline" size="sm" data-testid="button-filter-all">전체</Button>
+              </motion.div>
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+              >
+                <Button size="sm" data-testid="button-filter-kitchen">주방가전</Button>
+              </motion.div>
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+              >
+                <Button variant="outline" size="sm" data-testid="button-filter-living">생활가전</Button>
+              </motion.div>
             </div>
           </div>
           
@@ -329,7 +348,7 @@ export default function Home() {
       <section className="py-8 md:py-12 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center mb-8">
-            <h3 className="text-xl md:text-2xl font-bold text-foreground mb-4" data-testid="text-features-title">렌탈홈을 선택하는 이유</h3>
+            <h3 className="text-xl md:text-2xl font-bold text-foreground mb-4" data-testid="text-features-title">렌탈리움을 선택하는 이유</h3>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               합리적인 가격과 편리한 서비스로 가전제품 렌탈의 새로운 기준을 제시합니다
             </p>

@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Home, Search, Snowflake, ShirtIcon, Wind, Tv, Microwave, Bot, Truck, Shield, Facebook, Instagram, Youtube } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function Landing() {
   const { toast } = useToast();
@@ -35,20 +36,32 @@ export default function Landing() {
             {/* User Actions */}
             <div className="flex items-center space-x-2">
               <Link href="/home">
-                <Button 
-                  variant="ghost" 
-                  className="hidden md:inline-flex"
-                  data-testid="button-browse-products"
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 17 }}
                 >
-                  제품 둘러보기
-                </Button>
+                  <Button 
+                    variant="ghost" 
+                    className="hidden md:inline-flex"
+                    data-testid="button-browse-products"
+                  >
+                    제품 둘러보기
+                  </Button>
+                </motion.div>
               </Link>
               <Link href="/home">
-                <Button 
-                  data-testid="button-start-consultation"
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 17 }}
                 >
-                  상담 시작하기
-                </Button>
+                  <Button 
+                    data-testid="button-start-consultation"
+                  >
+                    상담 시작하기
+                  </Button>
+                </motion.div>
               </Link>
             </div>
           </div>
@@ -142,7 +155,7 @@ export default function Landing() {
       <section className="py-8 md:py-12 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center mb-8">
-            <h3 className="text-xl md:text-2xl font-bold text-foreground mb-4" data-testid="text-features-title">렌탈홈을 선택하는 이유</h3>
+            <h3 className="text-xl md:text-2xl font-bold text-foreground mb-4" data-testid="text-features-title">렌탈리움을 선택하는 이유</h3>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               합리적인 가격과 편리한 서비스로 가전제품 렌탈의 새로운 기준을 제시합니다
             </p>
@@ -227,9 +240,9 @@ export default function Landing() {
             <div className="flex flex-col md:flex-row justify-between items-center">
               <div className="flex items-center space-x-2 mb-4 md:mb-0">
                 <Home className="text-primary h-5 w-5" />
-                <span className="font-bold text-foreground">렌탈홈</span>
+                <span className="font-bold text-foreground">렌탈리움</span>
               </div>
-              <p className="text-sm text-muted-foreground">© 2024 렌탈홈. All rights reserved.</p>
+              <p className="text-sm text-muted-foreground">© 2024 렌탈리움. All rights reserved.</p>
             </div>
           </div>
         </div>
