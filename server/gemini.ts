@@ -727,8 +727,12 @@ function normalizeHeader(header: string): string {
 
 // Deterministic fallback mapping when AI fails
 function createFallbackMapping(headers: string[]): any {
+  console.log('=== FALLBACK MAPPING DEBUG ===');
+  console.log('Input headers:', headers);
+  
   const fallbackMappings: any = {};
   const normalizedHeaders = headers.map(h => normalizeHeader(h));
+  console.log('Normalized headers:', normalizedHeaders);
   
   // Common patterns for Korean headers
   const patterns = {
@@ -741,27 +745,44 @@ function createFallbackMapping(headers: string[]): any {
     descriptionKo: ['설명', 'description', '상세설명', '제품설명', '점검주기', '주기']
   };
   
+  console.log('Checking patterns against headers...');
   Object.entries(patterns).forEach(([field, keywords]) => {
+    console.log(`\nChecking field "${field}" with keywords:`, keywords);
+    
     for (const header of headers) {
       const normalizedHeader = normalizeHeader(header);
+      console.log(`  Checking header "${header}" (normalized: "${normalizedHeader}")`);
+      
       for (const keyword of keywords) {
-        if (normalizedHeader.includes(keyword.toLowerCase())) {
-          fallbackMappings[header] = {
+        const normalizedKeyword = keyword.toLowerCase();
+        const matches = normalizedHeader.includes(normalizedKeyword);
+        console.log(`    Keyword "${keyword}" -> "${normalizedKeyword}" matches: ${matches}`);
+        
+        if (matches) {
+          const mapping = {
             field,
             transformer: field.includes('Price') ? 'price' : 
                        field === 'categoryId' ? 'category' : 'text'
           };
+          fallbackMappings[header] = mapping;
+          console.log(`    ✅ MAPPED: "${header}" -> ${JSON.stringify(mapping)}`);
           break;
         }
       }
     }
   });
   
-  return {
+  const result = {
     columnMappings: fallbackMappings,
     categoryGuess: '',
     brandGuess: ''
   };
+  
+  console.log('=== FINAL FALLBACK MAPPING ===');
+  console.log('Result:', JSON.stringify(result, null, 2));
+  console.log('=== END FALLBACK MAPPING DEBUG ===');
+  
+  return result;
 }
 
 // Validate mapping field names
