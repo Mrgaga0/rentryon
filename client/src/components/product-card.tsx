@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Star } from "lucide-react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
+import { SharedElement } from "@/components/PageTransition";
 import KakaoChatButton from "@/components/kakao-chat-button";
 
 interface Product {
@@ -43,14 +44,17 @@ export default function ProductCard({ product, compact = false, showRecommendedB
       <Card className="group overflow-hidden transition-all duration-200 hover:shadow-xl hover:shadow-primary/10" data-testid={`card-product-${product.id}`}>
         <div className="relative">
           <Link href={`/products/${product.id}`} className="block cursor-pointer">
-            <div className={`${compact ? "h-40" : "h-48"} bg-muted overflow-hidden`}>
+            <SharedElement 
+              layoutId={`product-image-${product.id}`}
+              className={`${compact ? "h-40" : "h-48"} bg-muted overflow-hidden`}
+            >
               <img
                 src={product.imageUrl || "/api/placeholder/400/300"}
                 alt={product.nameKo}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                 data-testid="img-product-card"
               />
-            </div>
+            </SharedElement>
           </Link>
           
           {/* Badges */}

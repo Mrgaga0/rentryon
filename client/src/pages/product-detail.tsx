@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { motion } from "framer-motion";
+import { SharedElement } from "@/components/PageTransition";
 import Header from "@/components/header";
 import MobileNav from "@/components/mobile-nav";
 import AiChatButton from "@/components/ai-chat-button";
@@ -181,14 +182,17 @@ export default function ProductDetail() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Product Image */}
-          <div className="aspect-square bg-muted rounded-xl overflow-hidden">
+          <SharedElement 
+            layoutId={`product-image-${params?.id}`}
+            className="aspect-square bg-muted rounded-xl overflow-hidden"
+          >
             <img
               src={(product as any).imageUrl || "/api/placeholder/600/600"}
               alt={(product as any).nameKo}
               className="w-full h-full object-cover"
               data-testid="img-product"
             />
-          </div>
+          </SharedElement>
 
           {/* Product Info */}
           <div className="space-y-6">
