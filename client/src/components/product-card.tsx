@@ -1,14 +1,9 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
-import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Heart, Star } from "lucide-react";
+import { Star } from "lucide-react";
 import { Link } from "wouter";
+import KakaoChatButton from "@/components/kakao-chat-button";
 
 interface Product {
   id: string;
@@ -28,62 +23,6 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, compact = false, showRecommendedBadge = false }: ProductCardProps) {
-  const { isAuthenticated } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [isWishlisted, setIsWishlisted] = useState(false);
-
-  const addToWishlistMutation = useMutation({
-    mutationFn: async (productId: string) => {
-      return await apiRequest("POST", "/api/wishlist", { productId });
-    },
-    onSuccess: () => {
-      setIsWishlisted(true);
-      toast({
-        title: "찜목록에 추가됨",
-        description: "찜목록에서 확인할 수 있습니다.",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/wishlist"] });
-    },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "로그인이 필요합니다",
-          description: "로그인 후 이용해주세요.",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: "오류 발생",
-        description: "찜목록 추가에 실패했습니다.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleAddToWishlist = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (!isAuthenticated) {
-      toast({
-        title: "로그인이 필요합니다",
-        description: "로그인 후 이용해주세요.",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-      return;
-    }
-    
-    addToWishlistMutation.mutate(product.id);
-  };
-
   const monthlyPrice = parseFloat(product.monthlyPrice);
   const originalPrice = product.originalPrice ? parseFloat(product.originalPrice) : null;
 
@@ -114,17 +53,15 @@ export default function ProductCard({ product, compact = false, showRecommendedB
             )}
           </div>
 
-          {/* Wishlist Button */}
-          <Button
-            variant="outline"
-            size="icon"
-            className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm"
-            onClick={handleAddToWishlist}
-            disabled={addToWishlistMutation.isPending || isWishlisted}
-            data-testid="button-wishlist-card"
-          >
-            <Heart className={`h-4 w-4 ${isWishlisted ? "fill-red-500 text-red-500" : ""}`} />
-          </Button>
+          {/* Consultation Button (top right) */}
+          <div className="absolute top-2 right-2">
+            <KakaoChatButton 
+              variant="outline" 
+              size="sm"
+              className="bg-background/80 backdrop-blur-sm"
+              productName={product.nameKo}
+            />
+          </div>
         </div>
 
         <CardContent className="p-4">
@@ -164,9 +101,17 @@ export default function ProductCard({ product, compact = false, showRecommendedB
             </div>
 
             {!compact && (
-              <Button className="w-full mt-3" data-testid="button-rent-card">
-                렌탈하기
-              </Button>
+              <div className="mt-3 space-y-2">
+                <Link href={`/products/${product.id}`}>
+                  <Button variant="outline" className="w-full" data-testid="button-view-details">
+                    상품 상세보기
+                  </Button>
+                </Link>
+                <KakaoChatButton 
+                  className="w-full"
+                  productName={product.nameKo}
+                />
+              </div>
             )}
           </div>
         </CardContent>

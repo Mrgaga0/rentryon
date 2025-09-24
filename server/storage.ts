@@ -5,6 +5,7 @@ import {
   rentals,
   wishlist,
   chatMessages,
+  leads,
   type User,
   type UpsertUser,
   type Category,
@@ -17,6 +18,8 @@ import {
   type InsertWishlist,
   type ChatMessage,
   type InsertChatMessage,
+  type Lead,
+  type InsertLead,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, like, and, gte, lte, inArray } from "drizzle-orm";
@@ -56,6 +59,10 @@ export interface IStorage {
   // Chat operations
   getChatMessages(sessionId: string): Promise<ChatMessage[]>;
   saveChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
+
+  // Lead operations
+  createLead(lead: InsertLead): Promise<Lead>;
+  getLeads(): Promise<Lead[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -224,6 +231,16 @@ export class DatabaseStorage implements IStorage {
   async saveChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
     const [newMessage] = await db.insert(chatMessages).values(message).returning();
     return newMessage;
+  }
+
+  // Lead operations
+  async createLead(lead: InsertLead): Promise<Lead> {
+    const [newLead] = await db.insert(leads).values(lead).returning();
+    return newLead;
+  }
+
+  async getLeads(): Promise<Lead[]> {
+    return await db.select().from(leads).orderBy(desc(leads.createdAt));
   }
 }
 

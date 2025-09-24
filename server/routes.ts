@@ -1,29 +1,13 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
 import { getProductRecommendations, processChatMessage } from "./gemini";
 import {
-  insertRentalSchema,
-  insertWishlistSchema,
+  insertLeadSchema,
   insertChatMessageSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware
-  await setupAuth(app);
-
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
 
   // Category routes
   app.get('/api/categories', async (req, res) => {
@@ -93,77 +77,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Rental routes (protected)
-  app.get('/api/rentals', isAuthenticated, async (req: any, res) => {
+  // Consultation leads routes
+  app.post('/api/leads', async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const rentals = await storage.getRentals(userId);
-      res.json(rentals);
+      const leadData = insertLeadSchema.parse(req.body);
+      const lead = await storage.createLead(leadData);
+      res.status(201).json({ message: "상담 신청이 완료되었습니다. 공기간 내 연락드리겠습니다." });
     } catch (error) {
-      console.error("Error fetching rentals:", error);
-      res.status(500).json({ message: "Failed to fetch rentals" });
-    }
-  });
-
-  app.post('/api/rentals', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const rentalData = insertRentalSchema.parse({
-        ...req.body,
-        userId,
-      });
-
-      const rental = await storage.createRental(rentalData);
-      res.status(201).json(rental);
-    } catch (error) {
-      console.error("Error creating rental:", error);
-      res.status(500).json({ message: "Failed to create rental" });
-    }
-  });
-
-  // Wishlist routes (protected)
-  app.get('/api/wishlist', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const wishlist = await storage.getWishlist(userId);
-      res.json(wishlist);
-    } catch (error) {
-      console.error("Error fetching wishlist:", error);
-      res.status(500).json({ message: "Failed to fetch wishlist" });
-    }
-  });
-
-  app.post('/api/wishlist', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const wishlistData = insertWishlistSchema.parse({
-        ...req.body,
-        userId,
-      });
-
-      const wishlistItem = await storage.addToWishlist(wishlistData);
-      res.status(201).json(wishlistItem);
-    } catch (error) {
-      console.error("Error adding to wishlist:", error);
-      res.status(500).json({ message: "Failed to add to wishlist" });
-    }
-  });
-
-  app.delete('/api/wishlist/:productId', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { productId } = req.params;
-
-      const removed = await storage.removeFromWishlist(userId, productId);
-      
-      if (!removed) {
-        return res.status(404).json({ message: "Wishlist item not found" });
-      }
-      
-      res.json({ message: "Removed from wishlist" });
-    } catch (error) {
-      console.error("Error removing from wishlist:", error);
-      res.status(500).json({ message: "Failed to remove from wishlist" });
+      console.error("Error creating lead:", error);
+      res.status(500).json({ message: "상담 신청에 실패했습니다." });
     }
   });
 
@@ -181,19 +103,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/chat', async (req, res) => {
     try {
-      const { message, sessionId, userId } = req.body;
-      
-      // Debug logging
-      console.log('Chat request body:', { message, sessionId, userId });
+      const { message, sessionId } = req.body;
       
       // Validate sessionId
       if (!sessionId) {
         return res.status(400).json({ message: 'sessionId is required' });
       }
 
-      // Save user message
+      // Save user message (no userId required for anonymous chat)
       const userMessage = await storage.saveChatMessage({
-        userId,
+        userId: null,
         sessionId,
         message,
         isUser: true,
@@ -204,7 +123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Save AI response
       const aiMessage = await storage.saveChatMessage({
-        userId,
+        userId: null,
         sessionId,
         message: aiResponse.message,
         isUser: false,
@@ -217,7 +136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error processing chat message:", error);
-      res.status(500).json({ message: "Failed to process chat message" });
+      res.status(500).json({ message: "AI 상담 처리에 실패했습니다." });
     }
   });
 

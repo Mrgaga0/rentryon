@@ -1,9 +1,8 @@
-import { useAuth } from "@/hooks/useAuth";
-import { Home, Search, Heart, Package, User } from "lucide-react";
+import { Home, Search, MessageCircle, Bot } from "lucide-react";
 import { Link, useLocation } from "wouter";
+import KakaoChatButton from "@/components/kakao-chat-button";
 
 export default function MobileNav() {
-  const { isAuthenticated } = useAuth();
   const [location] = useLocation();
 
   const isActive = (path: string) => {
@@ -13,13 +12,9 @@ export default function MobileNav() {
   };
 
   const navItems = [
-    { icon: Home, label: "홈", path: "/", testId: "nav-mobile-home" },
-    { icon: Search, label: "검색", path: "/products", testId: "nav-mobile-products" },
-    ...(isAuthenticated ? [
-      { icon: Heart, label: "찜목록", path: "/wishlist", testId: "nav-mobile-wishlist" },
-      { icon: Package, label: "내 렌탈", path: "/my-rentals", testId: "nav-mobile-rentals" },
-    ] : []),
-    { icon: User, label: "내 정보", path: isAuthenticated ? "/profile" : "/api/login", testId: "nav-mobile-profile" },
+    { icon: Home, label: "홈", path: "/home", testId: "nav-mobile-home" },
+    { icon: Search, label: "제품", path: "/products", testId: "nav-mobile-products" },
+    { icon: Bot, label: "AI상담", path: "/chat", testId: "nav-mobile-chat" },
   ];
 
   return (
@@ -47,6 +42,13 @@ export default function MobileNav() {
             </Link>
           );
         })}
+        
+        {/* KakaoTalk consultation button */}
+        <div className="flex flex-col items-center py-2 px-3" data-testid="nav-mobile-kakao">
+          <div className="flex items-center justify-center">
+            <KakaoChatButton variant="ghost" size="sm" className="p-1 h-auto bg-transparent hover:bg-transparent text-[#FEE500]" />
+          </div>
+        </div>
       </div>
     </nav>
   );
