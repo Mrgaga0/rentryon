@@ -5,38 +5,38 @@
 @tailwind utilities;
 
 :root {
-  --background: hsl(240 5% 98%);
-  --foreground: hsl(220 9% 13%);
+  --background: hsl(240 8% 99%);
+  --foreground: hsl(225 15% 15%);
   --card: hsl(0 0% 100%);
-  --card-foreground: hsl(220 9% 13%);
+  --card-foreground: hsl(225 15% 15%);
   --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(220 9% 13%);
-  --primary: hsl(207 90% 54%);
+  --popover-foreground: hsl(225 15% 15%);
+  --primary: hsl(215 84% 58%);
   --primary-foreground: hsl(0 0% 100%);
-  --secondary: hsl(122 39% 49%);
+  --secondary: hsl(160 84% 39%);
   --secondary-foreground: hsl(0 0% 100%);
-  --muted: hsl(240 5% 96%);
-  --muted-foreground: hsl(220 9% 46%);
-  --accent: hsl(14 100% 57%);
+  --muted: hsl(240 6% 97%);
+  --muted-foreground: hsl(220 10% 52%);
+  --accent: hsl(25 95% 58%);
   --accent-foreground: hsl(0 0% 100%);
   --destructive: hsl(0 84% 60%);
   --destructive-foreground: hsl(0 0% 100%);
-  --border: hsl(220 13% 91%);
-  --input: hsl(220 13% 91%);
-  --ring: hsl(207 90% 54%);
-  --chart-1: hsl(207 90% 54%);
-  --chart-2: hsl(122 39% 49%);
-  --chart-3: hsl(14 100% 57%);
-  --chart-4: hsl(172 66% 50%);
-  --chart-5: hsl(280 65% 60%);
+  --border: hsl(220 13% 90%);
+  --input: hsl(220 13% 90%);
+  --ring: hsl(215 84% 58%);
+  --chart-1: hsl(215 84% 58%);
+  --chart-2: hsl(160 84% 39%);
+  --chart-3: hsl(25 95% 58%);
+  --chart-4: hsl(195 76% 45%);
+  --chart-5: hsl(285 89% 65%);
   --sidebar: hsl(0 0% 100%);
-  --sidebar-foreground: hsl(220 9% 13%);
-  --sidebar-primary: hsl(207 90% 54%);
+  --sidebar-foreground: hsl(225 15% 15%);
+  --sidebar-primary: hsl(215 84% 58%);
   --sidebar-primary-foreground: hsl(0 0% 100%);
-  --sidebar-accent: hsl(240 5% 96%);
-  --sidebar-accent-foreground: hsl(207 90% 54%);
-  --sidebar-border: hsl(220 13% 91%);
-  --sidebar-ring: hsl(207 90% 54%);
+  --sidebar-accent: hsl(240 6% 97%);
+  --sidebar-accent-foreground: hsl(215 84% 58%);
+  --sidebar-border: hsl(220 13% 90%);
+  --sidebar-ring: hsl(215 84% 58%);
   --font-sans: "Noto Sans KR", "Roboto", sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: "Fira Code", monospace;
@@ -51,41 +51,53 @@
   --shadow-2xl: 0px 25px 50px -12px hsl(0 0% 0% / 0.25);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
+  
+  /* Motion & Elevation Variables */
+  --elevation-subtle: -2px;
+  --elevation-card: -8px;
+  --scale-button: 1.03;
+  --scale-press: 0.97;
+  --scale-category: 1.04;
+  --scale-lift: 1.01;
+  
+  /* Reduced Motion Support */
+  --motion-duration: 200ms;
+  --motion-easing: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .dark {
-  --background: hsl(220 9% 13%);
-  --foreground: hsl(240 5% 96%);
-  --card: hsl(220 9% 18%);
-  --card-foreground: hsl(240 5% 96%);
-  --popover: hsl(220 9% 18%);
-  --popover-foreground: hsl(240 5% 96%);
-  --primary: hsl(207 90% 54%);
+  --background: hsl(225 15% 11%);
+  --foreground: hsl(240 8% 96%);
+  --card: hsl(225 15% 16%);
+  --card-foreground: hsl(240 8% 96%);
+  --popover: hsl(225 15% 16%);
+  --popover-foreground: hsl(240 8% 96%);
+  --primary: hsl(215 84% 64%);
   --primary-foreground: hsl(0 0% 100%);
-  --secondary: hsl(122 39% 49%);
+  --secondary: hsl(160 84% 42%);
   --secondary-foreground: hsl(0 0% 100%);
-  --muted: hsl(220 9% 22%);
-  --muted-foreground: hsl(240 4% 46%);
-  --accent: hsl(14 100% 57%);
+  --muted: hsl(225 15% 20%);
+  --muted-foreground: hsl(240 6% 52%);
+  --accent: hsl(25 95% 62%);
   --accent-foreground: hsl(0 0% 100%);
   --destructive: hsl(0 84% 60%);
   --destructive-foreground: hsl(0 0% 100%);
-  --border: hsl(220 9% 22%);
-  --input: hsl(220 9% 22%);
-  --ring: hsl(207 90% 54%);
-  --chart-1: hsl(207 90% 54%);
-  --chart-2: hsl(122 39% 49%);
-  --chart-3: hsl(14 100% 57%);
-  --chart-4: hsl(172 66% 50%);
-  --chart-5: hsl(280 65% 60%);
-  --sidebar: hsl(220 9% 18%);
-  --sidebar-foreground: hsl(240 5% 96%);
-  --sidebar-primary: hsl(207 90% 54%);
+  --border: hsl(225 15% 20%);
+  --input: hsl(225 15% 20%);
+  --ring: hsl(215 84% 64%);
+  --chart-1: hsl(215 84% 64%);
+  --chart-2: hsl(160 84% 42%);
+  --chart-3: hsl(25 95% 62%);
+  --chart-4: hsl(195 76% 50%);
+  --chart-5: hsl(285 89% 70%);
+  --sidebar: hsl(225 15% 16%);
+  --sidebar-foreground: hsl(240 8% 96%);
+  --sidebar-primary: hsl(215 84% 64%);
   --sidebar-primary-foreground: hsl(0 0% 100%);
-  --sidebar-accent: hsl(220 9% 22%);
-  --sidebar-accent-foreground: hsl(207 90% 54%);
-  --sidebar-border: hsl(220 9% 22%);
-  --sidebar-ring: hsl(207 90% 54%);
+  --sidebar-accent: hsl(225 15% 20%);
+  --sidebar-accent-foreground: hsl(215 84% 64%);
+  --sidebar-border: hsl(225 15% 20%);
+  --sidebar-ring: hsl(215 84% 64%);
   --font-sans: "Noto Sans KR", "Roboto", sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: "Fira Code", monospace;
@@ -112,6 +124,29 @@
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-sans);
+  }
+
+  /* Enhanced focus styles for better accessibility */
+  *:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration: 50ms !important;
+    --motion-easing: linear !important;
+  }
+  
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

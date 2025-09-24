@@ -1,5 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "wouter";
+import { motion } from "framer-motion";
+import { interactiveVariants, springPresets } from "@/lib/motion";
 import { 
   Snowflake, 
   ShirtIcon, 
@@ -45,18 +47,48 @@ export default function CategoryGrid({ categories }: CategoryGridProps) {
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-      {categories.map((category) => {
+      {categories.map((category, index) => {
         const IconComponent = getIcon(category.icon);
         
         return (
-          <Link key={category.id} href={`/products?categoryId=${category.id}`}>
-            <Card className="text-center group cursor-pointer hover:shadow-md transition-shadow border border-border" data-testid={`category-${category.id}`}>
-              <CardContent className="p-6">
-                <IconComponent className="h-8 w-8 text-primary mx-auto mb-3" />
-                <p className="text-sm font-medium text-foreground">{category.nameKo}</p>
-              </CardContent>
-            </Card>
-          </Link>
+          <motion.div
+            key={category.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ 
+              ...springPresets.gentle,
+              delay: index * 0.1, // 스태거 효과
+            }}
+            whileHover={interactiveVariants.categoryHover}
+            whileTap={interactiveVariants.categoryPress}
+            className="group"
+            style={{
+              willChange: 'transform, box-shadow',
+            }}
+          >
+            <Link href={`/products?categoryId=${category.id}`}>
+              <Card className="text-center cursor-pointer border-2 border-border/50 hover:border-primary/30 transition-colors duration-200 bg-card/80 backdrop-blur-sm" data-testid={`category-${category.id}`}>
+                <CardContent className="p-6">
+                  <motion.div
+                    whileHover={{
+                      scale: 1.1,
+                      rotate: [0, -5, 5, 0],
+                      transition: { 
+                        duration: 0.3,
+                        ease: "easeInOut"
+                      }
+                    }}
+                    className="mb-3 flex justify-center"
+                  >
+                    <IconComponent className="h-8 w-8 text-primary group-hover:text-primary/80 transition-colors duration-200" />
+                  </motion.div>
+                  <p className="text-sm font-medium text-foreground group-hover:text-primary/90 transition-colors duration-200">
+                    {category.nameKo}
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+          </motion.div>
         );
       })}
     </div>

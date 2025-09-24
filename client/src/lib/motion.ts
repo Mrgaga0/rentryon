@@ -31,6 +31,21 @@ export const motionTokens = {
     fadeOffset: 20,       // 페이드 업 오프셋 (px)
     scaleSubtle: 0.98,    // 미묘한 스케일 변화
     scaleHero: 1.02,      // 히어로 요소 강조
+    scaleButton: 1.03,    // 버튼 호버 확대
+    scalePress: 0.97,     // 버튼 누름 축소
+    scaleCategory: 1.04,  // 카테고리 타일 호버 확대
+    scaleLift: 1.01,      // 카드 리프트 효과
+    elevationSubtle: -2,  // 미묘한 Y축 이동
+    elevationCard: -8,    // 카드 호버 Y축 이동
+  },
+
+  // 그림자 효과 - elevation에 맞는 그림자 레벨 (boxShadow 애니메이션 문제 해결)
+  shadows: {
+    none: "0 0 0 0 rgba(0, 0, 0, 0)",
+    subtle: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+    card: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)",
+    elevated: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)",
+    strong: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
   },
 };
 
@@ -268,6 +283,124 @@ export function getChatStaggerVariants(index: number) {
     },
   };
 }
+
+// 인터랙티브 요소 변형들 - 버튼, 카드, 타일 등에 사용
+export const interactiveVariants = {
+  // 버튼 호버/누름 효과
+  buttonHover: {
+    scale: motionTokens.transforms.scaleButton,
+    y: motionTokens.transforms.elevationSubtle,
+    boxShadow: motionTokens.shadows.card,
+    transition: {
+      type: "spring",
+      stiffness: 400,
+      damping: 17,
+      duration: motionTokens.durations.fast / 1000,
+    }
+  },
+  buttonPress: {
+    scale: motionTokens.transforms.scalePress,
+    y: 0,
+    transition: {
+      type: "spring", 
+      stiffness: 600,
+      damping: 12,
+      duration: motionTokens.durations.fast / 1000,
+    }
+  },
+
+  // 카테고리 타일 호버 효과
+  categoryHover: {
+    scale: motionTokens.transforms.scaleCategory,
+    y: motionTokens.transforms.elevationSubtle,
+    boxShadow: motionTokens.shadows.elevated,
+    transition: {
+      type: "spring",
+      stiffness: 300,
+      damping: 20,
+      duration: motionTokens.durations.fast / 1000,
+    }
+  },
+  categoryPress: {
+    scale: motionTokens.transforms.scalePress,
+    transition: {
+      type: "spring",
+      stiffness: 500,
+      damping: 15,
+      duration: motionTokens.durations.fast / 1000,
+    }
+  },
+
+  // 제품 카드 리프트 효과
+  cardHover: {
+    scale: motionTokens.transforms.scaleLift,
+    y: motionTokens.transforms.elevationCard,
+    boxShadow: motionTokens.shadows.elevated,
+    transition: {
+      type: "spring",
+      stiffness: 260,
+      damping: 20,
+      duration: motionTokens.durations.normal / 1000,
+    }
+  },
+  cardPress: {
+    scale: 0.99,
+    y: motionTokens.transforms.elevationSubtle,
+    transition: {
+      type: "spring",
+      stiffness: 400,
+      damping: 10,
+      duration: motionTokens.durations.fast / 1000,
+    }
+  },
+
+  // 주의를 끄는 펄스 효과
+  attentionPulse: {
+    scale: [1, 1.02, 1],
+    transition: {
+      repeat: Infinity,
+      duration: 2,
+      ease: motionTokens.easing.smooth,
+    }
+  },
+
+  // 이미지 줌 효과 (제품 카드 내 이미지용)
+  imageZoom: {
+    scale: motionTokens.transforms.scaleHero,
+    transition: {
+      duration: motionTokens.durations.normal / 1000,
+      ease: motionTokens.easing.smooth,
+    }
+  },
+};
+
+// 스프링 프리셋 - 브랜드 톤에 맞는 탄성 설정
+export const springPresets = {
+  // 부드럽고 자연스러운 (기본)
+  gentle: {
+    type: "spring" as const,
+    stiffness: 260,
+    damping: 20,
+  },
+  // 빠르고 반응적인 (버튼, 소형 요소)
+  snappy: {
+    type: "spring" as const,
+    stiffness: 400,
+    damping: 17,
+  },
+  // 탄성이 있는 (등장 효과)
+  bouncy: {
+    type: "spring" as const,
+    stiffness: 300,
+    damping: 10,
+  },
+  // 매우 부드러운 (카드, 레이아웃)
+  smooth: {
+    type: "spring" as const,
+    stiffness: 200,
+    damping: 25,
+  },
+};
 
 // Reduced Motion 지원
 export const reducedMotionVariants = {

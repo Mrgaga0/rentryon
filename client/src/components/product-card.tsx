@@ -1,11 +1,12 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { MotionButton } from "@/components/ui/motion-button";
 import { Badge } from "@/components/ui/badge";
 import { Star } from "lucide-react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { SharedElement } from "@/components/PageTransition";
 import KakaoChatButton from "@/components/kakao-chat-button";
+import { interactiveVariants, springPresets } from "@/lib/motion";
 
 interface Product {
   id: string;
@@ -37,22 +38,35 @@ export default function ProductCard({ product, compact = false, showRecommendedB
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      whileHover={{ y: -8, scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
+      transition={springPresets.gentle}
+      whileHover={interactiveVariants.cardHover}
+      whileTap={interactiveVariants.cardPress}
+      className="group h-full"
+      style={{
+        willChange: 'transform, box-shadow',
+      }}
     >
-      <Card className="group overflow-hidden transition-all duration-200 hover:shadow-xl hover:shadow-primary/10" data-testid={`card-product-${product.id}`}>
+      <Card className="overflow-hidden border-2 border-border/30 hover:border-primary/20 bg-card/95 backdrop-blur-sm h-full flex flex-col transition-colors duration-300" data-testid={`card-product-${product.id}`}>
         <div className="relative">
           <Link href={`/products/${product.id}`} className="block cursor-pointer">
             <SharedElement 
               layoutId={`product-image-${product.id}`}
-              className={`${compact ? "h-40" : "h-48"} bg-muted overflow-hidden`}
+              className={`${compact ? "h-40" : "h-48"} bg-muted overflow-hidden relative`}
             >
-              <img
+              <motion.img
                 src={product.imageUrl || "/api/placeholder/400/300"}
                 alt={product.nameKo}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                className="w-full h-full object-cover"
                 data-testid="img-product-card"
+                whileHover={interactiveVariants.imageZoom}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+              />
+              {/* 호버 시 미묘한 오버레이 효과 */}
+              <motion.div 
+                className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"
+                initial={{ opacity: 0 }}
+                whileHover={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
               />
             </SharedElement>
           </Link>
@@ -123,11 +137,21 @@ export default function ProductCard({ product, compact = false, showRecommendedB
             </Link>
 
             {!compact && (
-              <div className="mt-3 space-y-2">
+              <motion.div 
+                className="mt-3 space-y-2"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, ...springPresets.gentle }}
+              >
                 <Link href={`/products/${product.id}`}>
-                  <Button variant="outline" className="w-full" data-testid="button-view-details">
+                  <MotionButton 
+                    variant="outline" 
+                    className="w-full hover:bg-primary/5" 
+                    data-testid="button-view-details"
+                    motionVariant="button"
+                  >
                     상품 상세보기
-                  </Button>
+                  </MotionButton>
                 </Link>
                 <div onClick={handleKakaoClick}>
                   <KakaoChatButton 
@@ -135,7 +159,7 @@ export default function ProductCard({ product, compact = false, showRecommendedB
                     productName={product.nameKo}
                   />
                 </div>
-              </div>
+              </motion.div>
             )}
           </div>
         </CardContent>
