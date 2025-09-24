@@ -13,7 +13,7 @@ import { Search, Filter } from "lucide-react";
 
 export default function Products() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [categoryId, setCategoryId] = useState("");
+  const [categoryId, setCategoryId] = useState("all");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [sortBy, setSortBy] = useState("newest");
@@ -25,7 +25,7 @@ export default function Products() {
   const { data: products, isLoading: productsLoading } = useQuery({
     queryKey: ["/api/products", {
       search: searchTerm || undefined,
-      categoryId: categoryId || undefined,
+      categoryId: categoryId !== "all" ? categoryId : undefined,
       minPrice: minPrice ? parseFloat(minPrice) : undefined,
       maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
       limit: 20,
@@ -72,7 +72,7 @@ export default function Products() {
                       <SelectValue placeholder="전체" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">전체</SelectItem>
+                      <SelectItem value="all">전체</SelectItem>
                       {(categories as any[])?.map((category: any) => (
                         <SelectItem key={category.id} value={category.id}>
                           {category.nameKo}
@@ -125,7 +125,7 @@ export default function Products() {
                     className="w-full"
                     onClick={() => {
                       setSearchTerm("");
-                      setCategoryId("");
+                      setCategoryId("all");
                       setMinPrice("");
                       setMaxPrice("");
                       setSortBy("newest");
@@ -179,7 +179,7 @@ export default function Products() {
                   variant="outline"
                   onClick={() => {
                     setSearchTerm("");
-                    setCategoryId("");
+                    setCategoryId("all");
                     setMinPrice("");
                     setMaxPrice("");
                   }}
