@@ -734,11 +734,11 @@ function createFallbackMapping(headers: string[]): any {
   const patterns = {
     name: ['제품명', 'product name', '상품명', 'name'],
     nameKo: ['제품명', '상품명', '제품이름', '한글명'],
-    brand: ['브랜드', 'brand', '제조사', '회사'],
-    monthlyPrice: ['월세', '월 렌탈료', '렌탈료', 'monthly', '월요금'],
-    originalPrice: ['정가', '원가', 'price', '가격', '판매가'],
-    categoryId: ['카테고리', 'category', '분류', '종류'],
-    descriptionKo: ['설명', 'description', '상세설명', '제품설명']
+    brand: ['브랜드', 'brand', '제조사', '회사', '마케팅네임', '마케팅'],
+    monthlyPrice: ['월세', '월 렌탈료', '렌탈료', 'monthly', '월요금', '약정할인가', '할인가', '월료'],
+    originalPrice: ['정가', '원가', 'price', '가격', '판매가', '정상가', '원래가격'],
+    categoryId: ['카테고리', 'category', '분류', '종류', '제품군', '군'],
+    descriptionKo: ['설명', 'description', '상세설명', '제품설명', '점검주기', '주기']
   };
   
   Object.entries(patterns).forEach(([field, keywords]) => {
