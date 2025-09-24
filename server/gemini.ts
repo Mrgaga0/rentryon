@@ -26,6 +26,13 @@ export interface ExcelParseResult {
     error: string;
     originalData: any;
   }>;
+  mapping?: {
+    source: 'ai' | 'fallback';
+    confidence: number;
+    columnMappings: any;
+    missingEssentials: string[];
+    validationErrors: string[];
+  };
 }
 
 export async function getProductRecommendations(
@@ -51,6 +58,23 @@ export async function getProductRecommendations(
 위 정보를 바탕으로 적합한 제품들을 추천하고 그 이유를 설명해주세요.
 응답은 JSON 형식으로 해주세요.`;
 
+    // Safe response accessor
+    const safeGetResponse = (response: any): string | null => {
+      try {
+        if (typeof response.text === 'string') {
+          return response.text;
+        } else if (typeof response.text === 'function') {
+          return response.text();
+        } else if (response.candidates?.[0]?.content?.parts?.[0]?.text) {
+          return response.candidates[0].content.parts[0].text;
+        }
+        return null;
+      } catch (error) {
+        console.error("Error accessing Gemini response:", error);
+        return null;
+      }
+    };
+
     const response = await ai.models.generateContent({
       model: "gemini-2.5-pro",
       config: {
@@ -70,7 +94,7 @@ export async function getProductRecommendations(
       contents: prompt,
     });
 
-    const rawJson = response.text;
+    const rawJson = safeGetResponse(response);
     if (rawJson) {
       const data: ProductRecommendation = JSON.parse(rawJson);
       return data;
@@ -107,6 +131,23 @@ export async function processChatMessage(
 
 응답은 JSON 형식으로 해주세요.`;
 
+    // Safe response accessor
+    const safeGetResponse = (response: any): string | null => {
+      try {
+        if (typeof response.text === 'string') {
+          return response.text;
+        } else if (typeof response.text === 'function') {
+          return response.text();
+        } else if (response.candidates?.[0]?.content?.parts?.[0]?.text) {
+          return response.candidates[0].content.parts[0].text;
+        }
+        return null;
+      } catch (error) {
+        console.error("Error accessing Gemini response:", error);
+        return null;
+      }
+    };
+
     const response = await ai.models.generateContent({
       model: "gemini-2.5-pro",
       config: {
@@ -126,7 +167,7 @@ export async function processChatMessage(
       contents: prompt,
     });
 
-    const rawJson = response.text;
+    const rawJson = safeGetResponse(response);
     if (rawJson) {
       const data: ChatResponse = JSON.parse(rawJson);
       return data;
@@ -160,11 +201,43 @@ export async function parseProductsFromExcel(
     // 2. 샘플 데이터 준비 (헤더 + 첫 5개 행)
     const sampleData = jsonData.slice(0, Math.min(6, jsonData.length));
     
-    // 3. Gemini AI를 사용해서 컬럼 매핑
+    // 3. Gemini AI를 사용해서 컬럼 매핑 (fallback 포함)
+    const headers = jsonData[0];
+    let finalMapping: any;
+    let confidence = 0;
+    let mappingSource: 'ai' | 'fallback' = 'fallback';
+    
     const mappingResult = await mapExcelColumnsWithAI(sampleData, fileName);
     
-    if (!mappingResult.success) {
-      throw new Error(mappingResult.error || "컬럼 매핑에 실패했습니다.");
+    let validationErrors: string[] = [];
+    
+    if (mappingResult.success && mappingResult.mapping) {
+      confidence = mappingResult.confidence || 0;
+      const validation = validateMapping(mappingResult.mapping);
+      validationErrors = validation.errors;
+      
+      if (validation.isValid && confidence >= 0.7) { // 70% confidence minimum
+        finalMapping = mappingResult.mapping;
+        mappingSource = 'ai';
+        console.log(`Using AI mapping with confidence: ${confidence}`);
+      } else {
+        console.warn(`AI mapping failed validation or low confidence (${confidence}). Using fallback.`);
+        finalMapping = createFallbackMapping(headers);
+        mappingSource = 'fallback';
+      }
+    } else {
+      console.warn("AI mapping failed. Using deterministic fallback mapping.");
+      finalMapping = createFallbackMapping(headers);
+      mappingSource = 'fallback';
+    }
+    
+    // Check for essential fields
+    const essentialFields = ['nameKo', 'monthlyPrice'];
+    const mappedFields = Object.values(finalMapping.columnMappings || {}).map((m: any) => m.field);
+    const missingEssentials = essentialFields.filter(field => !mappedFields.includes(field));
+    
+    if (missingEssentials.length > 0) {
+      console.warn(`Missing essential fields: ${missingEssentials.join(', ')}`);
     }
 
     // 4. 매핑 결과를 사용해서 모든 데이터 변환
@@ -176,9 +249,15 @@ export async function parseProductsFromExcel(
         errors: 0,
       },
       errors: [],
+      mapping: {
+        source: mappingSource,
+        confidence,
+        columnMappings: finalMapping.columnMappings,
+        missingEssentials,
+        validationErrors
+      }
     };
 
-    const headers = jsonData[0];
     
     for (let i = 1; i < jsonData.length; i++) {
       try {
@@ -193,8 +272,8 @@ export async function parseProductsFromExcel(
           }
         });
 
-        // AI 매핑 결과를 사용해서 ProductDraft 형식으로 변환
-        const draftData = convertRowToDraft(rowData, mappingResult.mapping, fileName, sheetNames[0], i);
+        // 최종 매핑 결과를 사용해서 ProductDraft 형식으로 변환
+        const draftData = convertRowToDraft(rowData, finalMapping, fileName, sheetNames[0], i);
         
         // 스키마 검증
         const validatedDraft = insertProductDraftWithSpecsSchema.parse(draftData);
@@ -226,9 +305,99 @@ async function mapExcelColumnsWithAI(
 ): Promise<{
   success: boolean;
   mapping?: any;
+  confidence?: number;
   error?: string;
 }> {
   try {
+    // Safe Gemini response accessor with fallback
+    const safeGetResponse = (response: any): string | null => {
+      try {
+        // Try different response access patterns based on SDK version
+        if (typeof response.text === 'string') {
+          return response.text;
+        } else if (typeof response.text === 'function') {
+          return response.text();
+        } else if (response.candidates?.[0]?.content?.parts?.[0]?.text) {
+          return response.candidates[0].content.parts[0].text;
+        }
+        return null;
+      } catch (error) {
+        console.error("Error accessing Gemini response:", error);
+        return null;
+      }
+    };
+
+    // Retry logic for API calls
+    const callGeminiWithRetry = async (prompt: string, maxRetries = 3): Promise<string | null> => {
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const response = await ai.models.generateContent({
+            model: "gemini-2.5-pro",
+            config: {
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: "object",
+                properties: {
+                  mapping: {
+                    type: "object",
+                    properties: {
+                      columnMappings: {
+                        type: "object",
+                        additionalProperties: {
+                          type: "object",
+                          properties: {
+                            field: { type: "string" },
+                            transformer: { 
+                              type: "string",
+                              enum: ["number", "text", "category", "price"] 
+                            },
+                            defaultValue: { type: "string" }
+                          }
+                        }
+                      },
+                      categoryGuess: { type: "string" },
+                      brandGuess: { type: "string" }
+                    }
+                  },
+                  confidence: { type: "number" },
+                  notes: { type: "string" }
+                },
+                required: ["mapping", "confidence"]
+              }
+            },
+            contents: prompt,
+          });
+
+          const responseText = safeGetResponse(response);
+          if (responseText) {
+            return responseText;
+          }
+          
+          throw new Error("Empty response from Gemini");
+          
+        } catch (error: any) {
+          console.error(`Gemini API attempt ${attempt} failed:`, error);
+          
+          // Check if it's a rate limit error (429) or server error (5xx)
+          if (error.status === 429 || (error.status >= 500 && error.status <= 599)) {
+            if (attempt < maxRetries) {
+              // Exponential backoff: 1s, 2s, 4s
+              const delay = Math.pow(2, attempt - 1) * 1000;
+              console.log(`Waiting ${delay}ms before retry...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+              continue;
+            }
+          }
+          
+          // If last attempt or non-retryable error, break
+          if (attempt === maxRetries) {
+            throw error;
+          }
+        }
+      }
+      return null;
+    };
+
     const prompt = `당신은 Excel 데이터를 분석해서 제품 정보 스키마로 매핑하는 전문가입니다.
 
 첨부된 Excel 파일 "${fileName}"의 샘플 데이터를 분석해서, 각 컬럼이 어떤 제품 정보 필드에 해당하는지 매핑해주세요.
@@ -280,49 +449,14 @@ ${JSON.stringify(sampleData, null, 2)}
 4. 브랜드명을 찾아주세요 (LG, 삼성, 코웨이, 청호나이스 등)
 5. 매핑되지 않는 컬럼들은 specifications에 자동 포함됩니다`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-pro",
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "object",
-          properties: {
-            mapping: {
-              type: "object",
-              properties: {
-                columnMappings: {
-                  type: "object",
-                  additionalProperties: {
-                    type: "object",
-                    properties: {
-                      field: { type: "string" },
-                      transformer: { 
-                        type: "string",
-                        enum: ["number", "text", "category", "price"] 
-                      },
-                      defaultValue: { type: "string" }
-                    }
-                  }
-                },
-                categoryGuess: { type: "string" },
-                brandGuess: { type: "string" }
-              }
-            },
-            confidence: { type: "number" },
-            notes: { type: "string" }
-          },
-          required: ["mapping", "confidence"]
-        }
-      },
-      contents: prompt,
-    });
-
-    const rawJson = response.text;
+    // Call Gemini with retry logic
+    const rawJson = await callGeminiWithRetry(prompt);
     if (rawJson) {
       const result = JSON.parse(rawJson);
       return {
         success: true,
-        mapping: result.mapping
+        mapping: result.mapping,
+        confidence: result.confidence || 0
       };
     } else {
       return {
@@ -338,6 +472,70 @@ ${JSON.stringify(sampleData, null, 2)}
       error: error instanceof Error ? error.message : String(error)
     };
   }
+}
+
+// Header normalization utility
+function normalizeHeader(header: string): string {
+  return header.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+// Deterministic fallback mapping when AI fails
+function createFallbackMapping(headers: string[]): any {
+  const fallbackMappings: any = {};
+  const normalizedHeaders = headers.map(h => normalizeHeader(h));
+  
+  // Common patterns for Korean headers
+  const patterns = {
+    name: ['제품명', 'product name', '상품명', 'name'],
+    nameKo: ['제품명', '상품명', '제품이름', '한글명'],
+    brand: ['브랜드', 'brand', '제조사', '회사'],
+    monthlyPrice: ['월세', '월 렌탈료', '렌탈료', 'monthly', '월요금'],
+    originalPrice: ['정가', '원가', 'price', '가격', '판매가'],
+    categoryId: ['카테고리', 'category', '분류', '종류'],
+    descriptionKo: ['설명', 'description', '상세설명', '제품설명']
+  };
+  
+  Object.entries(patterns).forEach(([field, keywords]) => {
+    for (const header of headers) {
+      const normalizedHeader = normalizeHeader(header);
+      for (const keyword of keywords) {
+        if (normalizedHeader.includes(keyword.toLowerCase())) {
+          fallbackMappings[header] = {
+            field,
+            transformer: field.includes('Price') ? 'price' : 
+                       field === 'categoryId' ? 'category' : 'text'
+          };
+          break;
+        }
+      }
+    }
+  });
+  
+  return {
+    columnMappings: fallbackMappings,
+    categoryGuess: '',
+    brandGuess: ''
+  };
+}
+
+// Validate mapping field names
+function validateMapping(mapping: any): { isValid: boolean; errors: string[] } {
+  const allowedFields = ['name', 'nameKo', 'brand', 'monthlyPrice', 'originalPrice', 'categoryId', 'descriptionKo', 'rating'];
+  const errors: string[] = [];
+  
+  if (!mapping.columnMappings) {
+    return { isValid: false, errors: ['Missing columnMappings'] };
+  }
+  
+  Object.entries(mapping.columnMappings).forEach(([header, mappingInfo]: [string, any]) => {
+    // Keep unknown fields as-is, convertRowToDraft will handle them
+    if (mappingInfo.field && !allowedFields.includes(mappingInfo.field)) {
+      // Mark as unknown but preserve the original field name for specifications
+      mappingInfo.isUnknownField = true;
+    }
+  });
+  
+  return { isValid: true, errors };
 }
 
 function convertRowToDraft(
@@ -399,8 +597,11 @@ function convertRowToDraft(
         if (typeof transformedValue === 'number' && transformedValue > 0) {
           draft[field] = transformedValue;
         }
+      } else if (mappingInfo.isUnknownField) {
+        // 알 수 없는 필드는 원래 컬럼 이름으로 specifications에 저장
+        draft.specifications[column] = transformedValue;
       } else {
-        // specifications에 추가
+        // 기타 매핑된 필드들은 필드명으로 specifications에 추가
         draft.specifications[field] = transformedValue;
       }
     } else if (!mappingInfo) {
