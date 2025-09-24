@@ -88,23 +88,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Excel 파일 업로드 및 파싱 엔드포인트
   app.post('/api/upload/excel-products', excelUpload.single('excel'), async (req, res) => {
+    console.log('=== Excel Upload Started ===');
     try {
       if (!req.file) {
+        console.log('ERROR: No file provided');
         return res.status(400).json({ message: 'Excel 파일을 선택해주세요.' });
       }
 
-      console.log(`Processing Excel file: ${req.file.originalname}`);
+      console.log(`Processing Excel file: ${req.file.originalname}, Size: ${req.file.size} bytes`);
+      
+      // 파일 크기 체크 (10MB 제한)
+      if (req.file.size > 10 * 1024 * 1024) {
+        console.log('ERROR: File too large');
+        return res.status(400).json({ message: '파일이 너무 큽니다. 10MB 이하의 파일을 업로드해주세요.' });
+      }
+
+      console.log('Starting Excel parsing...');
       
       // parseProductsFromExcel 함수를 사용하여 Excel 파일 파싱
       const result = await parseProductsFromExcel(req.file.buffer, req.file.originalname);
       
+      console.log('Excel parsing completed successfully');
+      console.log(`Stats: ${result.stats.successfullyParsed} success, ${result.stats.errors} errors`);
+      
+      // 응답 크기를 제한하기 위해 drafts는 개수만 전송
+      const responseData = {
+        ...result,
+        drafts: result.drafts.map(draft => ({
+          nameKo: draft.nameKo || 'N/A',
+          brand: draft.brand || 'N/A', 
+          categoryId: draft.categoryId || 'N/A',
+          monthlyPrice: draft.monthlyPrice || 0,
+          status: draft.status
+        }))
+      };
+      
       res.json({
         message: 'Excel 파일이 성공적으로 파싱되었습니다.',
-        data: result
+        data: responseData
       });
       
     } catch (error) {
-      console.error('Excel parsing error:', error);
+      console.error('=== Excel parsing error ===');
+      console.error('Error type:', error?.constructor?.name);
+      console.error('Error message:', error instanceof Error ? error.message : String(error));
+      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      console.error('========================');
+      
       res.status(500).json({ 
         message: 'Excel 파일 파싱에 실패했습니다.',
         error: error instanceof Error ? error.message : String(error)
