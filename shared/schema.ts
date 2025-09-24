@@ -298,10 +298,31 @@ export const insertProductWithSpecsSchema = insertProductSchema
 export const insertProductDraftWithSpecsSchema = insertProductDraftSchema
   .merge(z.object({
     specifications: productSpecificationsSchema.optional(),
-    // Convert numbers to strings for DB decimal fields
-    rating: z.number().min(0).max(5).transform(String).optional(),
-    monthlyPrice: z.number().positive().transform(String).optional(),
-    originalPrice: z.number().positive().transform(String).optional(),
+    // Accept both numbers and strings, convert to strings for DB decimal fields
+    rating: z.union([z.number(), z.string()])
+      .transform((val) => {
+        if (typeof val === 'string') {
+          const num = parseFloat(val);
+          return isNaN(num) ? '4.5' : Math.min(Math.max(num, 0), 5).toString();
+        }
+        return Math.min(Math.max(val, 0), 5).toString();
+      }).optional(),
+    monthlyPrice: z.union([z.number(), z.string()])
+      .transform((val) => {
+        if (typeof val === 'string') {
+          const num = parseFloat(val.replace(/[^0-9.]/g, ''));
+          return isNaN(num) || num <= 0 ? undefined : num.toString();
+        }
+        return val <= 0 ? undefined : val.toString();
+      }).optional(),
+    originalPrice: z.union([z.number(), z.string()])
+      .transform((val) => {
+        if (typeof val === 'string') {
+          const num = parseFloat(val.replace(/[^0-9.]/g, ''));
+          return isNaN(num) || num <= 0 ? undefined : num.toString();
+        }
+        return val <= 0 ? undefined : val.toString();
+      }).optional(),
     // Array fields with proper validation
     detailImageUrls: z.array(z.string().url()).default([]),
     errors: z.array(z.string()).default([]),
