@@ -1,6 +1,5 @@
-import { useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,28 +8,10 @@ import { Home, Search, Snowflake, ShirtIcon, Wind, Tv, Microwave, Bot, Truck, Sh
 
 export default function Landing() {
   const { toast } = useToast();
-  const { isAuthenticated, isLoading } = useAuth();
-
-  // Redirect if authenticated
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      window.location.href = "/";
-    }
-  }, [isAuthenticated, isLoading]);
-
-  const handleLogin = () => {
-    window.location.href = "/api/login";
-  };
 
   const handleSearch = () => {
-    toast({
-      title: "로그인이 필요합니다",
-      description: "제품 검색을 위해 로그인해주세요.",
-      variant: "default",
-    });
-    setTimeout(() => {
-      window.location.href = "/api/login";
-    }, 1000);
+    // Redirect to home page with search
+    window.location.href = "/home";
   };
 
   return (
@@ -53,20 +34,22 @@ export default function Landing() {
             
             {/* User Actions */}
             <div className="flex items-center space-x-2">
-              <Button 
-                variant="ghost" 
-                onClick={handleLogin}
-                className="hidden md:inline-flex"
-                data-testid="button-login"
-              >
-                로그인
-              </Button>
-              <Button 
-                onClick={handleLogin}
-                data-testid="button-signup"
-              >
-                회원가입
-              </Button>
+              <Link href="/home">
+                <Button 
+                  variant="ghost" 
+                  className="hidden md:inline-flex"
+                  data-testid="button-browse-products"
+                >
+                  제품 둘러보기
+                </Button>
+              </Link>
+              <Link href="/home">
+                <Button 
+                  data-testid="button-start-consultation"
+                >
+                  상담 시작하기
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

@@ -1,158 +1,84 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRoute } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import Header from "@/components/header";
 import MobileNav from "@/components/mobile-nav";
 import AiChatButton from "@/components/ai-chat-button";
+import KakaoChatButton from "@/components/kakao-chat-button";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import { Heart, Star, Calendar, Shield, Truck, ArrowLeft } from "lucide-react";
+import { Star, Shield, Truck, ArrowLeft, MessageSquare, Phone } from "lucide-react";
 import { Link } from "wouter";
+import { insertLeadSchema } from "@shared/schema";
+
+// Consultation form schema
+const consultationFormSchema = insertLeadSchema.extend({
+  phone: z.string().min(10, "연락처를 입력해주세요"),
+  notes: z.string().optional(),
+});
+
+type ConsultationFormData = z.infer<typeof consultationFormSchema>;
 
 export default function ProductDetail() {
   const [match, params] = useRoute("/products/:id");
-  const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [rentalPeriod, setRentalPeriod] = useState("3");
-  const [startDate, setStartDate] = useState("");
+  const [showConsultationForm, setShowConsultationForm] = useState(false);
 
   const { data: product, isLoading } = useQuery({
     queryKey: ["/api/products", params?.id],
     enabled: !!params?.id,
   });
 
-  const addToWishlistMutation = useMutation({
-    mutationFn: async (productId: string) => {
-      return await apiRequest("POST", "/api/wishlist", { productId });
+  const form = useForm<ConsultationFormData>({
+    resolver: zodResolver(consultationFormSchema),
+    defaultValues: {
+      productId: params?.id || "",
+      name: "",
+      phone: "",
+      notes: "",
+    },
+  });
+
+  const submitConsultationMutation = useMutation({
+    mutationFn: async (data: ConsultationFormData) => {
+      return await apiRequest("POST", "/api/leads", {
+        ...data,
+        productId: params?.id,
+      });
     },
     onSuccess: () => {
       toast({
-        title: "찜목록에 추가됨",
-        description: "찜목록에서 확인할 수 있습니다.",
+        title: "상담 신청 완료",
+        description: "상담 신청이 성공적으로 접수되었습니다. 빠른 시일 내에 연락드리겠습니다.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/wishlist"] });
+      form.reset();
+      setShowConsultationForm(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
     },
     onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "로그인이 필요합니다",
-          description: "로그인 후 이용해주세요.",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
+      console.error("Consultation submission error:", error);
       toast({
         title: "오류 발생",
-        description: "찜목록 추가에 실패했습니다.",
+        description: "상담 신청에 실패했습니다. 다시 시도해주세요.",
         variant: "destructive",
       });
     },
   });
 
-  const createRentalMutation = useMutation({
-    mutationFn: async (rentalData: any) => {
-      return await apiRequest("POST", "/api/rentals", rentalData);
-    },
-    onSuccess: () => {
-      toast({
-        title: "렌탈 신청 완료",
-        description: "렌탈 신청이 성공적으로 접수되었습니다.",
-      });
-      // Redirect to my rentals page
-      window.location.href = "/my-rentals";
-    },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "로그인이 필요합니다",
-          description: "로그인 후 이용해주세요.",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: "오류 발생",
-        description: "렌탈 신청에 실패했습니다.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  useEffect(() => {
-    // Set default start date to tomorrow
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    setStartDate(tomorrow.toISOString().split('T')[0]);
-  }, []);
-
-  const handleAddToWishlist = () => {
-    if (!isAuthenticated) {
-      toast({
-        title: "로그인이 필요합니다",
-        description: "로그인 후 이용해주세요.",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-      return;
-    }
-    
-    if (params?.id) {
-      addToWishlistMutation.mutate(params.id);
-    }
-  };
-
-  const handleRental = () => {
-    if (!isAuthenticated) {
-      toast({
-        title: "로그인이 필요합니다",
-        description: "로그인 후 이용해주세요.",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-      return;
-    }
-
-    if (!startDate) {
-      toast({
-        title: "시작일을 선택해주세요",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const startDateTime = new Date(startDate);
-    const endDateTime = new Date(startDateTime);
-    endDateTime.setMonth(endDateTime.getMonth() + parseInt(rentalPeriod));
-
-    const monthlyPrice = parseFloat((product as any).monthlyPrice);
-    const totalPrice = monthlyPrice * parseInt(rentalPeriod);
-
-    createRentalMutation.mutate({
-      productId: params?.id,
-      startDate: startDateTime.toISOString(),
-      endDate: endDateTime.toISOString(),
-      monthlyPrice: monthlyPrice.toString(),
-      totalPrice: totalPrice.toString(),
-    });
+  const onSubmitConsultation = (data: ConsultationFormData) => {
+    submitConsultationMutation.mutate(data);
   };
 
   if (!match) return null;
@@ -187,7 +113,7 @@ export default function ProductDetail() {
         <div className="container mx-auto px-4 py-6">
           <div className="text-center py-12">
             <p className="text-lg text-muted-foreground mb-4">제품을 찾을 수 없습니다</p>
-            <Link href="/products">
+            <Link href="/home">
               <Button>제품 목록으로 돌아가기</Button>
             </Link>
           </div>
@@ -198,7 +124,6 @@ export default function ProductDetail() {
   }
 
   const monthlyPrice = parseFloat((product as any).monthlyPrice);
-  const totalPrice = monthlyPrice * parseInt(rentalPeriod);
 
   return (
     <div className="min-h-screen bg-background">
@@ -206,7 +131,7 @@ export default function ProductDetail() {
       
       <div className="container mx-auto px-4 py-6">
         {/* Back Button */}
-        <Link href="/products">
+        <Link href="/home">
           <Button variant="ghost" size="sm" className="mb-6" data-testid="button-back">
             <ArrowLeft className="mr-2 h-4 w-4" />
             제품 목록으로
@@ -231,15 +156,6 @@ export default function ProductDetail() {
                 <h1 className="text-2xl md:text-3xl font-bold text-foreground" data-testid="text-product-name">
                   {(product as any).nameKo}
                 </h1>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleAddToWishlist}
-                  disabled={addToWishlistMutation.isPending}
-                  data-testid="button-add-wishlist"
-                >
-                  <Heart className="h-4 w-4" />
-                </Button>
               </div>
               
               <div className="flex items-center space-x-4 mb-4">
@@ -270,68 +186,32 @@ export default function ProductDetail() {
                         </span>
                       )}
                     </div>
+                    <p className="text-sm text-muted-foreground">
+                      렌탈 요금은 기간과 조건에 따라 달라질 수 있습니다
+                    </p>
                   </div>
 
                   <Separator />
 
-                  {/* Rental Configuration */}
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-2">렌탈 기간</label>
-                      <Select value={rentalPeriod} onValueChange={setRentalPeriod} data-testid="select-rental-period">
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">1개월</SelectItem>
-                          <SelectItem value="3">3개월</SelectItem>
-                          <SelectItem value="6">6개월</SelectItem>
-                          <SelectItem value="12">12개월</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-2">시작일</label>
-                      <input
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        className="w-full px-3 py-2 border border-input rounded-md bg-background"
-                        min={new Date(Date.now() + 86400000).toISOString().split('T')[0]} // Tomorrow
-                        data-testid="input-start-date"
-                      />
-                    </div>
-
-                    <div className="bg-muted/50 p-4 rounded-lg">
-                      <div className="flex items-center justify-between text-sm">
-                        <span>월 렌탈료</span>
-                        <span>{monthlyPrice.toLocaleString()}원</span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span>렌탈 기간</span>
-                        <span>{rentalPeriod}개월</span>
-                      </div>
-                      <Separator className="my-2" />
-                      <div className="flex items-center justify-between font-semibold">
-                        <span>총 금액</span>
-                        <span className="text-primary" data-testid="text-total-price">
-                          {totalPrice.toLocaleString()}원
-                        </span>
-                      </div>
-                    </div>
+                  {/* Consultation Actions */}
+                  <div className="space-y-3">
+                    <KakaoChatButton 
+                      className="w-full" 
+                      size="lg"
+                      productName={(product as any).nameKo}
+                    />
+                    
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      size="lg"
+                      onClick={() => setShowConsultationForm(true)}
+                      data-testid="button-consultation-form"
+                    >
+                      <Phone className="mr-2 h-4 w-4" />
+                      상담 신청하기
+                    </Button>
                   </div>
-
-                  <Button
-                    className="w-full"
-                    size="lg"
-                    onClick={handleRental}
-                    disabled={createRentalMutation.isPending}
-                    data-testid="button-rent"
-                  >
-                    <Calendar className="mr-2 h-4 w-4" />
-                    {createRentalMutation.isPending ? "처리 중..." : "렌탈 신청하기"}
-                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -364,6 +244,92 @@ export default function ProductDetail() {
             </div>
           </div>
         </div>
+
+        {/* Consultation Form Modal */}
+        {showConsultationForm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <Card className="w-full max-w-md">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5" />
+                  상담 신청하기
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmitConsultation)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>성함</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="성함을 입력해주세요" data-testid="input-consultation-name" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>연락처</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="010-0000-0000" data-testid="input-consultation-phone" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="notes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>문의사항 (선택)</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              {...field} 
+                              placeholder="렌탈 기간, 설치 관련 문의사항 등을 적어주세요"
+                              rows={3}
+                              data-testid="textarea-consultation-notes"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="flex gap-2 pt-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => setShowConsultationForm(false)}
+                        data-testid="button-consultation-cancel"
+                      >
+                        취소
+                      </Button>
+                      <Button
+                        type="submit"
+                        className="flex-1"
+                        disabled={submitConsultationMutation.isPending}
+                        data-testid="button-consultation-submit"
+                      >
+                        {submitConsultationMutation.isPending ? "처리 중..." : "신청하기"}
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Product Specifications */}
         {(product as any).specifications && (
