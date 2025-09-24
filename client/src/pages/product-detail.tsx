@@ -18,17 +18,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import { Star, Shield, Truck, ArrowLeft, MessageSquare, Phone } from "lucide-react";
+import { Star, Shield, Truck, ArrowLeft, MessageSquare, Phone, X } from "lucide-react";
 import { Link } from "wouter";
 import { insertLeadSchema } from "@shared/schema";
 
-// Consultation form schema
-const consultationFormSchema = insertLeadSchema.extend({
-  phone: z.string().min(10, "연락처를 입력해주세요"),
-  notes: z.string().optional(),
-});
+// Consultation form schema - match the insertLeadSchema exactly
+const consultationFormSchema = insertLeadSchema;
 
-type ConsultationFormData = z.infer<typeof consultationFormSchema>;
+type ConsultationFormData = z.infer<typeof insertLeadSchema>;
+
 
 export default function ProductDetail() {
   const [match, params] = useRoute("/products/:id");
@@ -45,18 +43,24 @@ export default function ProductDetail() {
     resolver: zodResolver(consultationFormSchema),
     defaultValues: {
       productId: params?.id || "",
+      productName: "", // Will be set when product loads
+      rentalPeriodMonths: 3, // Default rental period
       name: "",
       phone: "",
-      notes: "",
+      preferredTime: "",
+      message: "",
     },
   });
 
   const submitConsultationMutation = useMutation({
     mutationFn: async (data: ConsultationFormData) => {
-      return await apiRequest("POST", "/api/leads", {
+      const submissionData = {
         ...data,
-        productId: params?.id,
-      });
+        productId: params?.id || null,
+        productName: (product as any)?.nameKo || data.productName,
+      };
+      console.log("Submitting consultation data:", submissionData);
+      return await apiRequest("POST", "/api/leads", submissionData);
     },
     onSuccess: () => {
       toast({
@@ -247,13 +251,24 @@ export default function ProductDetail() {
 
         {/* Consultation Form Modal */}
         {showConsultationForm && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <Card className="w-full max-w-md">
-              <CardHeader>
+          <div 
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+            onClick={() => setShowConsultationForm(false)}
+          >
+            <Card className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="flex items-center gap-2">
                   <MessageSquare className="h-5 w-5" />
                   상담 신청하기
                 </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowConsultationForm(false)}
+                  data-testid="button-consultation-close"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </CardHeader>
               <CardContent>
                 <Form {...form}>
@@ -288,16 +303,66 @@ export default function ProductDetail() {
 
                     <FormField
                       control={form.control}
-                      name="notes"
+                      name="rentalPeriodMonths"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>렌탈 기간</FormLabel>
+                          <FormControl>
+                            <select 
+                              {...field} 
+                              className="w-full px-3 py-2 border border-input rounded-md bg-background"
+                              data-testid="select-rental-period"
+                              onChange={(e) => field.onChange(parseInt(e.target.value))}
+                              value={field.value}
+                            >
+                              <option value={1}>1개월</option>
+                              <option value={3}>3개월</option>
+                              <option value={6}>6개월</option>
+                              <option value={12}>12개월</option>
+                              <option value={24}>24개월</option>
+                            </select>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="preferredTime"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>선호 상담 시간 (선택)</FormLabel>
+                          <FormControl>
+                            <select 
+                              {...field} 
+                              className="w-full px-3 py-2 border border-input rounded-md bg-background"
+                              data-testid="select-preferred-time"
+                            >
+                              <option value="">선택해주세요</option>
+                              <option value="오전 9-12시">오전 9-12시</option>
+                              <option value="오후 1-6시">오후 1-6시</option>
+                              <option value="저녁 6-9시">저녁 6-9시</option>
+                              <option value="주말">주말</option>
+                            </select>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="message"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>문의사항 (선택)</FormLabel>
                           <FormControl>
                             <Textarea 
                               {...field} 
-                              placeholder="렌탈 기간, 설치 관련 문의사항 등을 적어주세요"
+                              placeholder="추가 문의사항이 있으시면 적어주세요"
                               rows={3}
-                              data-testid="textarea-consultation-notes"
+                              data-testid="textarea-consultation-message"
                             />
                           </FormControl>
                           <FormMessage />

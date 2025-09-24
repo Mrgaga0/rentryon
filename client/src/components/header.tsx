@@ -9,7 +9,7 @@ export default function Header() {
     <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-backdrop-blur:bg-card/60">
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
-          <Link href="/">
+          <Link href="/home">
             <div className="flex items-center space-x-2 cursor-pointer" data-testid="logo-link">
               <Home className="text-primary text-2xl h-6 w-6" />
               <h1 className="text-xl font-bold text-foreground">렌탈홈</h1>

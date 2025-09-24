@@ -26,18 +26,24 @@ export default function ProductCard({ product, compact = false, showRecommendedB
   const monthlyPrice = parseFloat(product.monthlyPrice);
   const originalPrice = product.originalPrice ? parseFloat(product.originalPrice) : null;
 
+  const handleKakaoClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
   return (
-    <Card className="group cursor-pointer overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1" data-testid={`card-product-${product.id}`}>
-      <Link href={`/products/${product.id}`}>
+    <Card className="group overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1" data-testid={`card-product-${product.id}`}>
         <div className="relative">
-          <div className={`${compact ? "h-40" : "h-48"} bg-muted overflow-hidden`}>
-            <img
-              src={product.imageUrl || "/api/placeholder/400/300"}
-              alt={product.nameKo}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-              data-testid="img-product-card"
-            />
-          </div>
+          <Link href={`/products/${product.id}`} className="block cursor-pointer">
+            <div className={`${compact ? "h-40" : "h-48"} bg-muted overflow-hidden`}>
+              <img
+                src={product.imageUrl || "/api/placeholder/400/300"}
+                alt={product.nameKo}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                data-testid="img-product-card"
+              />
+            </div>
+          </Link>
           
           {/* Badges */}
           <div className="absolute top-2 left-2 flex flex-wrap gap-1">
@@ -54,7 +60,7 @@ export default function ProductCard({ product, compact = false, showRecommendedB
           </div>
 
           {/* Consultation Button (top right) */}
-          <div className="absolute top-2 right-2">
+          <div className="absolute top-2 right-2" onClick={handleKakaoClick}>
             <KakaoChatButton 
               variant="outline" 
               size="sm"
@@ -66,39 +72,43 @@ export default function ProductCard({ product, compact = false, showRecommendedB
 
         <CardContent className="p-4">
           <div className="space-y-2">
-            <div className="flex items-start justify-between">
-              <h3 className={`font-semibold text-foreground line-clamp-1 ${compact ? "text-sm" : "text-base"}`} data-testid="text-product-name">
-                {product.nameKo}
-              </h3>
-              <div className="flex items-center space-x-1 ml-2">
-                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                <span className="text-xs text-muted-foreground" data-testid="text-product-rating">
-                  {product.rating}
-                </span>
-              </div>
-            </div>
-
-            <p className={`text-muted-foreground line-clamp-2 ${compact ? "text-xs" : "text-sm"}`} data-testid="text-product-description">
-              {product.descriptionKo}
-            </p>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <div className="flex items-center space-x-2">
-                  <span className={`font-bold text-foreground ${compact ? "text-base" : "text-lg"}`} data-testid="text-product-price">
-                    월 {monthlyPrice.toLocaleString()}원
+            <Link href={`/products/${product.id}`} className="block cursor-pointer">
+              <div className="flex items-start justify-between">
+                <h3 className={`font-semibold text-foreground line-clamp-1 ${compact ? "text-sm" : "text-base"}`} data-testid="text-product-name">
+                  {product.nameKo}
+                </h3>
+                <div className="flex items-center space-x-1 ml-2">
+                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                  <span className="text-xs text-muted-foreground" data-testid="text-product-rating">
+                    {product.rating}
                   </span>
-                  {originalPrice && originalPrice > monthlyPrice && (
-                    <span className={`text-muted-foreground line-through ${compact ? "text-xs" : "text-sm"}`}>
-                      월 {originalPrice.toLocaleString()}원
-                    </span>
-                  )}
                 </div>
-                <Badge variant="outline" className="text-xs">
-                  {product.brand}
-                </Badge>
               </div>
-            </div>
+            </Link>
+
+            <Link href={`/products/${product.id}`} className="block cursor-pointer">
+              <p className={`text-muted-foreground line-clamp-2 ${compact ? "text-xs" : "text-sm"}`} data-testid="text-product-description">
+                {product.descriptionKo}
+              </p>
+
+              <div className="flex items-center justify-between mt-2">
+                <div className="space-y-1">
+                  <div className="flex items-center space-x-2">
+                    <span className={`font-bold text-foreground ${compact ? "text-base" : "text-lg"}`} data-testid="text-product-price">
+                      월 {monthlyPrice.toLocaleString()}원
+                    </span>
+                    {originalPrice && originalPrice > monthlyPrice && (
+                      <span className={`text-muted-foreground line-through ${compact ? "text-xs" : "text-sm"}`}>
+                        월 {originalPrice.toLocaleString()}원
+                      </span>
+                    )}
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    {product.brand}
+                  </Badge>
+                </div>
+              </div>
+            </Link>
 
             {!compact && (
               <div className="mt-3 space-y-2">
@@ -107,15 +117,16 @@ export default function ProductCard({ product, compact = false, showRecommendedB
                     상품 상세보기
                   </Button>
                 </Link>
-                <KakaoChatButton 
-                  className="w-full"
-                  productName={product.nameKo}
-                />
+                <div onClick={handleKakaoClick}>
+                  <KakaoChatButton 
+                    className="w-full"
+                    productName={product.nameKo}
+                  />
+                </div>
               </div>
             )}
           </div>
         </CardContent>
-      </Link>
     </Card>
   );
 }
