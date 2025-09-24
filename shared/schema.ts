@@ -202,6 +202,50 @@ export const insertLeadSchema = createInsertSchema(leads).omit({
   createdAt: true,
 });
 
+// Product specification schemas
+export const productColorSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  hex: z.string(),
+  imageUrl: z.string().optional(),
+});
+
+export const productBasicInfoSchema = z.object({
+  modelNumber: z.string().optional(),
+  maker: z.string().optional(),
+  type: z.string().optional(),
+  releaseYear: z.string().optional(),
+  dimensions: z.string().optional(), // "180 x 340 x 385mm (가로 x 세로 x 높이)"
+});
+
+export const productServiceInfoSchema = z.object({
+  maintenanceDesc: z.string().optional(),
+  warranty: z.string().optional(),
+  installLeadTime: z.string().optional(),
+});
+
+export const productSpecificationsSchema = z.object({
+  features: z.array(z.string()).default([]),
+  rentalOptions: z.object({
+    minimumPeriod: z.array(z.object({
+      months: z.number(),
+      monthlyPrice: z.number(),
+    })).default([]),
+    maintenanceCycle: z.array(z.object({
+      months: z.number(),
+      additionalFee: z.number(),
+      description: z.string(),
+    })).default([]),
+  }).optional(),
+  // Enhanced structure from reference app
+  colors: z.array(productColorSchema).default([]),
+  functions: z.array(z.string()).default([]), // ["냉수", "온수", "정수"]
+  tags: z.array(z.string()).default([]), // ["베스트", "타사상품 혜택"]
+  basicInfo: productBasicInfoSchema.optional(),
+  extraFeatures: z.array(z.string()).default([]), // ["고온", "UV 살균", "IoT 기능"]
+  serviceInfo: productServiceInfoSchema.optional(),
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type UpsertUser = typeof users.$inferInsert;
@@ -209,6 +253,10 @@ export type Category = typeof categories.$inferSelect;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type Product = typeof products.$inferSelect;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
+export type ProductColor = z.infer<typeof productColorSchema>;
+export type ProductBasicInfo = z.infer<typeof productBasicInfoSchema>;
+export type ProductServiceInfo = z.infer<typeof productServiceInfoSchema>;
+export type ProductSpecifications = z.infer<typeof productSpecificationsSchema>;
 export type Rental = typeof rentals.$inferSelect;
 export type InsertRental = z.infer<typeof insertRentalSchema>;
 export type Wishlist = typeof wishlist.$inferSelect;
