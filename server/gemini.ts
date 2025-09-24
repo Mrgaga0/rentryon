@@ -579,48 +579,6 @@ async function mapExcelColumnsWithAI(
         try {
           const response = await ai.models.generateContent({
             model: "gemini-2.5-pro",
-            config: {
-              responseMimeType: "application/json",
-              responseSchema: {
-                type: "object",
-                properties: {
-                  mapping: {
-                    type: "object",
-                    properties: {
-                      columnMappings: {
-                        type: "object",
-                        properties: {},
-                        additionalProperties: {
-                          type: "object",
-                          properties: {
-                            field: { 
-                              type: "string",
-                              enum: ["name", "nameKo", "brand", "monthlyPrice", "originalPrice", "categoryId", "descriptionKo", "rating"]
-                            },
-                            transformer: { 
-                              type: "string",
-                              enum: ["number", "text", "category", "price"] 
-                            },
-                            confidence: { type: "number" }
-                          },
-                          required: ["field", "transformer"]
-                        }
-                      },
-                      categoryGuess: { type: "string" },
-                      brandGuess: { type: "string" }
-                    },
-                    required: ["columnMappings"]
-                  },
-                  confidence: { 
-                    type: "number",
-                    minimum: 0,
-                    maximum: 1
-                  },
-                  notes: { type: "string" }
-                },
-                required: ["mapping", "confidence"]
-              }
-            },
             contents: prompt,
           });
 
@@ -679,22 +637,19 @@ ${JSON.stringify(sampleData, null, 2)}
 5. 카테고리 관련은 transformer: "category" 사용
 6. 나머지는 transformer: "text" 사용
 
-매핑 예시:
+응답은 다음 JSON 형식으로 제공해주세요:
 {
-  "mapping": {
-    "columnMappings": {
-      "제품명": { "field": "nameKo", "transformer": "text" },
-      "Product Name": { "field": "name", "transformer": "text" },
-      "브랜드": { "field": "brand", "transformer": "text" },
-      "월 렌탈료": { "field": "monthlyPrice", "transformer": "price" },
-      "정가": { "field": "originalPrice", "transformer": "price" },
-      "카테고리": { "field": "categoryId", "transformer": "category" },
-      "설명": { "field": "descriptionKo", "transformer": "text" },
-      "용량": { "field": "capacity", "transformer": "text" }
-    },
-    "categoryGuess": "냉장고",
-    "brandGuess": "LG"
+  "columnMappings": {
+    "제품명": { "field": "nameKo", "transformer": "text" },
+    "Product Name": { "field": "name", "transformer": "text" },
+    "브랜드": { "field": "brand", "transformer": "text" },
+    "월 렌탈료": { "field": "monthlyPrice", "transformer": "price" },
+    "정가": { "field": "originalPrice", "transformer": "price" },
+    "카테고리": { "field": "categoryId", "transformer": "category" },
+    "설명": { "field": "descriptionKo", "transformer": "text" }
   },
+  "categoryGuess": "정수기",
+  "brandGuess": "코웨이",
   "confidence": 0.9
 }
 
@@ -711,8 +666,10 @@ ${JSON.stringify(sampleData, null, 2)}
       const result = JSON.parse(rawJson);
       return {
         success: true,
-        mapping: result.mapping,
-        confidence: result.confidence || 0
+        mapping: { columnMappings: result.columnMappings },
+        confidence: result.confidence || 0,
+        categoryGuess: result.categoryGuess,
+        brandGuess: result.brandGuess
       };
     } else {
       return {
