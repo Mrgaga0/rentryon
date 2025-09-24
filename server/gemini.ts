@@ -188,14 +188,110 @@ export async function parseProductsFromExcel(
   fileName: string
 ): Promise<ExcelParseResult> {
   try {
-    // 1. Excel 파일을 JSON으로 변환
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
+    // 1. Excel 파일을 다양한 옵션으로 파싱 시도
+    console.log('Trying to parse Excel with different options...');
+    
+    // 먼저 기본 옵션으로 시도
+    let workbook = XLSX.read(buffer, { type: 'buffer' });
+    console.log('Basic parsing - SheetNames:', workbook.SheetNames, 'Sheets keys:', Object.keys(workbook.Sheets));
+    
+    // 시트 데이터가 없으면 다른 옵션들을 시도
+    if (workbook.SheetNames.length > 0 && Object.keys(workbook.Sheets).length === 0) {
+      console.log('Empty sheets detected, trying alternative parsing options...');
+      
+      // 옵션 1: cellStyles 활성화
+      workbook = XLSX.read(buffer, { type: 'buffer', cellStyles: true });
+      console.log('With cellStyles - Sheets keys:', Object.keys(workbook.Sheets));
+      
+      if (Object.keys(workbook.Sheets).length === 0) {
+        // 옵션 2: cellFormula, cellHTML 등 추가 옵션
+        workbook = XLSX.read(buffer, { 
+          type: 'buffer', 
+          cellStyles: true, 
+          cellFormula: true,
+          cellHTML: true,
+          cellDates: true
+        });
+        console.log('With extended options - Sheets keys:', Object.keys(workbook.Sheets));
+      }
+      
+      if (Object.keys(workbook.Sheets).length === 0) {
+        // 옵션 3: 다른 파싱 옵션 시도
+        workbook = XLSX.read(buffer, { type: 'buffer', cellText: false, cellNF: true });
+        console.log('With cellText/cellNF options - Sheets keys:', Object.keys(workbook.Sheets));
+      }
+      
+      if (Object.keys(workbook.Sheets).length === 0) {
+        // 옵션 4: raw 모드
+        workbook = XLSX.read(buffer, { type: 'buffer', raw: true });
+        console.log('With raw mode - Sheets keys:', Object.keys(workbook.Sheets));
+      }
+    }
     const sheetNames = workbook.SheetNames;
-    const firstSheet = workbook.Sheets[sheetNames[0]];
-    const jsonData: any[] = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+    console.log('Excel sheets found:', sheetNames);
+    
+    console.log('First sheet name:', sheetNames[0]);
+    console.log('Available sheet keys in workbook.Sheets:', Object.keys(workbook.Sheets));
+    console.log('Sheet names vs actual keys comparison:', {
+      sheetNames: sheetNames,
+      actualKeys: Object.keys(workbook.Sheets),
+      areEqual: JSON.stringify(sheetNames) === JSON.stringify(Object.keys(workbook.Sheets))
+    });
+    
+    // 다양한 방법으로 시트에 접근 시도
+    let firstSheet = workbook.Sheets[sheetNames[0]];
+    
+    if (!firstSheet && Object.keys(workbook.Sheets).length > 0) {
+      // 시트 이름 인코딩 문제일 경우 첫 번째 시트를 가져옴
+      const actualFirstKey = Object.keys(workbook.Sheets)[0];
+      console.log('Trying first available sheet key:', actualFirstKey);
+      firstSheet = workbook.Sheets[actualFirstKey];
+    }
+    
+    // 시트 존재 확인
+    if (!firstSheet) {
+      throw new Error(`Excel 시트를 찾을 수 없습니다. 요청된 시트: "${sheetNames[0]}", 사용 가능한 시트: [${Object.keys(workbook.Sheets).join(', ')}]`);
+    }
+    
+    // 시트 범위 확인 (방어적 코드)
+    const sheetRef = firstSheet['!ref'];
+    console.log('Sheet ref property:', sheetRef);
+    console.log('Sheet keys:', Object.keys(firstSheet).slice(0, 20)); // 디버깅용
+    
+    if (!sheetRef) {
+      // !ref가 없는 경우, 시트가 완전히 비어있거나 다른 구조일 수 있음
+      console.log('No !ref found, checking sheet contents directly...');
+      const directData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' });
+      console.log('Direct sheet data:', directData.slice(0, 3));
+      
+      if (directData.length === 0) {
+        throw new Error('Excel 시트가 완전히 비어있습니다. 데이터를 확인해주세요.');
+      }
+    }
+    
+    // 다양한 옵션으로 JSON 변환 시도
+    const jsonData: any[] = XLSX.utils.sheet_to_json(firstSheet, { 
+      header: 1,
+      defval: '', // 빈 셀을 빈 문자열로 처리
+      blankrows: false // 빈 행 제외
+    });
+    
+    console.log('Parsed JSON data:', {
+      totalRows: jsonData.length,
+      sampleRows: jsonData.slice(0, 5),
+      hasData: jsonData.length >= 2,
+      sheetRef: sheetRef
+    });
 
-    if (jsonData.length < 2) {
-      throw new Error("Excel 파일에 충분한 데이터가 없습니다.");
+    // 유효한 데이터 행 검사 (빈 행은 제외)
+    const validRows = jsonData.filter(row => 
+      row && row.some((cell: any) => cell !== null && cell !== undefined && String(cell).trim() !== '')
+    );
+    
+    console.log('Valid rows after filtering:', validRows.length);
+    
+    if (validRows.length < 2) {
+      throw new Error(`Excel 파일에 유효한 데이터가 충분하지 않습니다. 유효한 행 수: ${validRows.length}, 필요: 최소 2행 (헤더 + 데이터). 전체 행: ${jsonData.length}`);
     }
 
     // 2. 샘플 데이터 준비 (헤더 + 첫 5개 행)
