@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { motion } from "framer-motion";
+import { ChatStaggerContainer, ChatStaggerItem } from "@/components/PageTransition";
 import Header from "@/components/header";
 import MobileNav from "@/components/mobile-nav";
 import { Button } from "@/components/ui/button";
@@ -26,26 +28,17 @@ export default function Chat() {
 
   const sendMessageMutation = useMutation({
     mutationFn: async (message: string) => {
-      return await apiRequest("POST", "/api/chat", {
+      const response = await apiRequest("POST", "/api/chat", {
         message,
         sessionId,
         userId: null, // Anonymous for now
       });
+      return await response.json();
     },
     onSuccess: (data: any) => {
-      // Add both user and AI messages to the state
-      const newMessages: ChatMessage[] = [];
-      
-      if (data.userMessage && typeof data.userMessage === 'object' && 'isUser' in data.userMessage) {
-        newMessages.push(data.userMessage);
-      }
-      
+      // Only add AI message (user message was already added optimistically)
       if (data.aiMessage && typeof data.aiMessage === 'object' && 'isUser' in data.aiMessage) {
-        newMessages.push(data.aiMessage);
-      }
-      
-      if (newMessages.length > 0) {
-        setMessages(prev => [...prev, ...newMessages]);
+        setMessages(prev => [...prev, data.aiMessage]);
       }
       
       setInputMessage("");
@@ -117,8 +110,21 @@ export default function Chat() {
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
       
-      {/* Chat Header */}
-      <div className="bg-card border-b border-border p-4">
+      {/* Chat Header with Animation */}
+      <motion.div 
+        className="bg-card border-b border-border p-4"
+        initial={{ opacity: 0, y: -20, scale: 0.95 }}
+        animate={{ 
+          opacity: 1, 
+          y: 0, 
+          scale: 1,
+          transition: {
+            duration: 0.4,
+            ease: [0.68, -0.55, 0.265, 1.55], // Bouncy entrance
+            delay: 0.1
+          }
+        }}
+      >
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <Link href="/">
@@ -127,26 +133,69 @@ export default function Chat() {
                 홈으로
               </Button>
             </Link>
-            <div className="flex items-center space-x-2">
-              <div className="bg-primary/10 p-2 rounded-full">
+            <motion.div 
+              className="flex items-center space-x-2"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ 
+                opacity: 1, 
+                x: 0,
+                transition: {
+                  delay: 0.3,
+                  duration: 0.3
+                }
+              }}
+            >
+              <motion.div 
+                className="bg-primary/10 p-2 rounded-full"
+                initial={{ scale: 0 }}
+                animate={{ 
+                  scale: 1,
+                  transition: {
+                    delay: 0.4,
+                    duration: 0.3,
+                    ease: [0.68, -0.55, 0.265, 1.55]
+                  }
+                }}
+              >
                 <Bot className="h-5 w-5 text-primary" />
-              </div>
-              <div>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ 
+                  opacity: 1, 
+                  y: 0,
+                  transition: {
+                    delay: 0.5,
+                    duration: 0.2
+                  }
+                }}
+              >
                 <h2 className="font-semibold" data-testid="text-chat-title">AI 상담사</h2>
                 <p className="text-xs text-muted-foreground">가전제품 렌탈 전문 상담</p>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Messages */}
       <div className="flex-1 overflow-hidden">
         <div className="container mx-auto h-full px-4 py-6">
           <div className="h-full overflow-y-auto space-y-4 mb-4" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-            {messages.filter(msg => msg && typeof msg.isUser === 'boolean').map((message) => (
-              <div
+            {messages.filter(msg => msg && typeof msg.isUser === 'boolean').map((message, index) => (
+              <motion.div
                 key={message.id}
+                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                animate={{ 
+                  opacity: 1, 
+                  y: 0, 
+                  scale: 1,
+                  transition: {
+                    delay: index * 0.1,
+                    duration: 0.3,
+                    ease: [0.22, 1, 0.36, 1]
+                  }
+                }}
                 className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
                 data-testid={`message-${message.isUser ? 'user' : 'ai'}-${message.id}`}
               >
@@ -166,7 +215,7 @@ export default function Chat() {
                     </CardContent>
                   </Card>
                 </div>
-              </div>
+              </motion.div>
             ))}
             
             {/* Loading indicator */}
