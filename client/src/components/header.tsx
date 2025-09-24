@@ -12,7 +12,7 @@ export default function Header() {
           <Link href="/home">
             <div className="flex items-center space-x-2 cursor-pointer" data-testid="logo-link">
               <Home className="text-primary text-2xl h-6 w-6" />
-              <h1 className="text-xl font-bold text-foreground">렌탈홈</h1>
+              <h1 className="text-xl font-bold text-foreground">렌탈리움</h1>
             </div>
           </Link>
           

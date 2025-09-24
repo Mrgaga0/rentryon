@@ -2,7 +2,7 @@
 
 ## Overview
 
-RentalHome (렌탈홈) is a Korean appliance rental platform that allows users to browse, search, and rent household appliances. The application features AI-powered product recommendations using Google Gemini, user authentication via Replit Auth, and a modern React frontend built with TypeScript and Tailwind CSS. Users can explore product categories, view detailed product information, manage rental agreements, and interact with an AI chatbot for personalized recommendations.
+RentalRium (렌탈리움) is a Korean appliance rental platform that allows users to browse, search, and rent household appliances. The application features AI-powered product recommendations using Google Gemini, consultation-first business model via KakaoTalk integration, and a modern React frontend built with TypeScript and Tailwind CSS. Users can explore product categories, view detailed product information, request consultations, and interact with an AI chatbot for personalized recommendations.
 
 ## User Preferences
 
