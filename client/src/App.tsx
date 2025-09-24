@@ -11,6 +11,8 @@ import Products from "@/pages/products";
 import ProductDetail from "@/pages/product-detail";
 import MyRentals from "@/pages/my-rentals";
 import Chat from "@/pages/chat";
+import Profile from "@/pages/profile";
+import Wishlist from "@/pages/wishlist";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -26,6 +28,8 @@ function Router() {
           <Route path="/products/:id" component={ProductDetail} />
           <Route path="/my-rentals" component={MyRentals} />
           <Route path="/chat" component={Chat} />
+          <Route path="/profile" component={Profile} />
+          <Route path="/wishlist" component={Wishlist} />
         </>
       )}
       <Route component={NotFound} />
