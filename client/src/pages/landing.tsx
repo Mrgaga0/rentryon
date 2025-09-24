@@ -22,7 +22,7 @@ export default function Landing() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <Home className="text-primary text-2xl" data-testid="logo-icon" />
-              <h1 className="text-xl font-bold text-foreground">렌탈홈</h1>
+              <h1 className="text-xl font-bold text-foreground">렌탈리움</h1>
             </div>
             
             {/* Desktop Navigation */}

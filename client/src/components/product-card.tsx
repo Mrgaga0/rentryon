@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Star } from "lucide-react";
 import { Link } from "wouter";
+import { motion } from "framer-motion";
 import KakaoChatButton from "@/components/kakao-chat-button";
 
 interface Product {
@@ -32,7 +33,14 @@ export default function ProductCard({ product, compact = false, showRecommendedB
   };
 
   return (
-    <Card className="group overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1" data-testid={`card-product-${product.id}`}>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      whileHover={{ y: -8, scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+    >
+      <Card className="group overflow-hidden transition-all duration-200 hover:shadow-xl hover:shadow-primary/10" data-testid={`card-product-${product.id}`}>
         <div className="relative">
           <Link href={`/products/${product.id}`} className="block cursor-pointer">
             <div className={`${compact ? "h-40" : "h-48"} bg-muted overflow-hidden`}>
@@ -127,6 +135,7 @@ export default function ProductCard({ product, compact = false, showRecommendedB
             )}
           </div>
         </CardContent>
-    </Card>
+      </Card>
+    </motion.div>
   );
 }

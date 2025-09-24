@@ -6,6 +6,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { motion } from "framer-motion";
 import Header from "@/components/header";
 import MobileNav from "@/components/mobile-nav";
 import AiChatButton from "@/components/ai-chat-button";
@@ -203,16 +204,27 @@ export default function ProductDetail() {
                       productName={(product as any).nameKo}
                     />
                     
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      size="lg"
-                      onClick={() => setShowConsultationForm(true)}
-                      data-testid="button-consultation-form"
+                    <motion.div
+                      whileHover={{ scale: 1.02, y: -2 }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 20 }}
                     >
-                      <Phone className="mr-2 h-4 w-4" />
-                      상담 신청하기
-                    </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        size="lg"
+                        onClick={() => setShowConsultationForm(true)}
+                        data-testid="button-consultation-form"
+                      >
+                        <motion.div
+                          animate={{ x: [0, 5, 0] }}
+                          transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                        >
+                          <Phone className="mr-2 h-4 w-4" />
+                        </motion.div>
+                        상담 신청하기
+                      </Button>
+                    </motion.div>
                   </div>
                 </div>
               </CardContent>

@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { MessageCircle } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface KakaoChatButtonProps {
   variant?: "default" | "outline" | "ghost" | "destructive" | "secondary";
@@ -48,15 +49,26 @@ export default function KakaoChatButton({
   };
 
   return (
-    <Button 
-      onClick={handleKakaoChat}
-      variant={variant}
-      size={size}
-      className={`bg-[#FEE500] hover:bg-[#FDD835] text-black border-0 ${className}`}
-      data-testid="button-kakao-chat"
+    <motion.div
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      transition={{ type: "spring", stiffness: 400, damping: 17 }}
     >
-      <MessageCircle className="h-4 w-4 mr-2" />
-      카카오 상담
-    </Button>
+      <Button 
+        onClick={handleKakaoChat}
+        variant={variant}
+        size={size}
+        className={`bg-[#FEE500] hover:bg-[#FDD835] text-black border-0 ${className}`}
+        data-testid="button-kakao-chat"
+      >
+        <motion.div
+          animate={{ rotate: [0, 10, 0, -10, 0] }}
+          transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+        >
+          <MessageCircle className="h-4 w-4 mr-2" />
+        </motion.div>
+        카카오 상담
+      </Button>
+    </motion.div>
   );
 }

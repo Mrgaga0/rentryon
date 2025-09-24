@@ -9,13 +9,53 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, ArrowRight, Bot, Truck, Shield } from "lucide-react";
+import { Search, ArrowRight, Bot, Truck, Shield, ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import useEmblaCarousel from "embla-carousel-react";
+import Autoplay from "embla-carousel-autoplay";
 
 export default function Home() {
   const [searchTerm, setSearchTerm] = useState("");
   const [rentalPeriod, setRentalPeriod] = useState("");
+  
+  // Advertisement Carousel
+  const [emblaRef, emblaApi] = useEmblaCarousel(
+    { loop: true, align: "center" },
+    [Autoplay({ delay: 4000, stopOnInteraction: false })]
+  );
+  
+  const adBanners = [
+    {
+      id: 1,
+      title: "봄맞이 특가 이벤트",
+      subtitle: "모든 가전제품 렌탈료 30% 할인!",
+      bgColor: "from-blue-500 to-purple-600",
+      action: "지금 보기"
+    },
+    {
+      id: 2,
+      title: "프리미엄 냉장고",
+      subtitle: "LG 디오스 냉장고 월 39,000원부터",
+      bgColor: "from-green-500 to-teal-600",
+      action: "렌탈 신청"
+    },
+    {
+      id: 3,
+      title: "에어컨 시즌 준비",
+      subtitle: "삼성 무풍에어컨 설치비 무료",
+      bgColor: "from-orange-500 to-red-600",
+      action: "상담 신청"
+    },
+    {
+      id: 4,
+      title: "세탁기 + 건조기 세트",
+      subtitle: "세트 렌탈시 추가 10% 할인 혜택",
+      bgColor: "from-indigo-500 to-purple-600",
+      action: "혜택 확인"
+    }
+  ];
 
   const { data: categories, isLoading: categoriesLoading } = useQuery({
     queryKey: ["/api/categories"],
@@ -38,6 +78,86 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
       <Header />
+
+      {/* Advertisement Banner Carousel */}
+      <section className="relative overflow-hidden bg-gradient-to-r from-primary/5 to-secondary/5">
+        <div className="embla" ref={emblaRef}>
+          <div className="embla__container flex">
+            {adBanners.map((banner) => (
+              <motion.div 
+                key={banner.id} 
+                className="embla__slide flex-[0_0_100%] min-w-0"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.6 }}
+              >
+                <div className={`h-48 md:h-64 bg-gradient-to-r ${banner.bgColor} flex items-center justify-center text-white relative overflow-hidden`}>
+                  <div className="absolute inset-0 bg-black/20"></div>
+                  <motion.div 
+                    className="text-center z-10 px-4"
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.3, duration: 0.6 }}
+                  >
+                    <motion.h2 
+                      className="text-2xl md:text-4xl font-bold mb-2"
+                      animate={{ scale: [1, 1.02, 1] }}
+                      transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+                    >
+                      {banner.title}
+                    </motion.h2>
+                    <p className="text-sm md:text-lg mb-4 opacity-90">{banner.subtitle}</p>
+                    <motion.div
+                      whileHover={{ scale: 1.05, y: -2 }}
+                      whileTap={{ scale: 0.95 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                    >
+                      <Button 
+                        variant="secondary" 
+                        size="lg" 
+                        className="bg-white text-gray-800 hover:bg-gray-100 font-semibold shadow-lg"
+                        data-testid={`button-ad-${banner.id}`}
+                      >
+                        {banner.action}
+                        <motion.div
+                          animate={{ x: [0, 5, 0] }}
+                          transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                        >
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </motion.div>
+                      </Button>
+                    </motion.div>
+                  </motion.div>
+                  
+                  {/* Decorative Elements */}
+                  <motion.div 
+                    className="absolute top-4 right-4 w-20 h-20 bg-white/10 rounded-full"
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 20, ease: "linear" }}
+                  ></motion.div>
+                  <motion.div 
+                    className="absolute bottom-6 left-6 w-12 h-12 bg-white/10 rounded-full"
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                  ></motion.div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Carousel Dots */}
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+          {adBanners.map((_, index) => (
+            <motion.div 
+              key={index}
+              className="w-2 h-2 bg-white/50 rounded-full cursor-pointer"
+              whileHover={{ scale: 1.2, backgroundColor: "rgba(255,255,255,0.8)" }}
+              transition={{ duration: 0.2 }}
+            />
+          ))}
+        </div>
+      </section>
 
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-primary/10 to-secondary/10 py-8 md:py-12">
@@ -85,13 +205,25 @@ export default function Home() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">&nbsp;</label>
-                    <Button 
-                      className="w-full" 
-                      onClick={handleSearch}
-                      data-testid="button-search"
+                    <motion.div
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 17 }}
                     >
-                      <Search className="mr-2 h-4 w-4" />검색
-                    </Button>
+                      <Button 
+                        className="w-full" 
+                        onClick={handleSearch}
+                        data-testid="button-search"
+                      >
+                        <motion.div
+                          animate={{ rotate: [0, 15, 0] }}
+                          transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+                        >
+                          <Search className="mr-2 h-4 w-4" />
+                        </motion.div>
+                        검색
+                      </Button>
+                    </motion.div>
                   </div>
                 </div>
               </CardContent>
