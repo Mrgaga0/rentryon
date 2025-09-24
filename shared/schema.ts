@@ -107,6 +107,30 @@ export const leads = pgTable("leads", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Product drafts table for Excel import workflow
+export const productDrafts = pgTable("product_drafts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // Raw source metadata for tracking
+  rawSourceMeta: jsonb("raw_source_meta").notNull(), // { fileName, sheetName, rowIndex, originalData }
+  // Parsed product data
+  name: varchar("name", { length: 200 }),
+  nameKo: varchar("name_ko", { length: 200 }),
+  descriptionKo: text("description_ko"),
+  categoryId: varchar("category_id").references(() => categories.id),
+  monthlyPrice: decimal("monthly_price", { precision: 10, scale: 2 }),
+  originalPrice: decimal("original_price", { precision: 10, scale: 2 }),
+  rating: decimal("rating", { precision: 3, scale: 2 }),
+  brand: varchar("brand", { length: 100 }),
+  specifications: jsonb("specifications"),
+  // Draft-specific fields
+  status: varchar("status", { length: 20 }).notNull().default('pending'), // pending, needs_review, approved, rejected
+  mainImageUrl: varchar("main_image_url", { length: 500 }),
+  detailImageUrls: jsonb("detail_image_urls").notNull().default('[]'), // string[]
+  errors: jsonb("errors").default('[]'), // string[] for validation/parsing errors
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   rentals: many(rentals),
@@ -163,6 +187,13 @@ export const leadsRelations = relations(leads, ({ one }) => ({
   }),
 }));
 
+export const productDraftsRelations = relations(productDrafts, ({ one }) => ({
+  category: one(categories, {
+    fields: [productDrafts.categoryId],
+    references: [categories.id],
+  }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -202,6 +233,12 @@ export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
 export const insertLeadSchema = createInsertSchema(leads).omit({
   id: true,
   createdAt: true,
+});
+
+export const insertProductDraftSchema = createInsertSchema(productDrafts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 // Product specification schemas
@@ -257,6 +294,19 @@ export const insertProductWithSpecsSchema = insertProductSchema
     rating: z.number().min(0).max(5).transform(String),
   }));
 
+// Enhanced draft schema with specification validation for Gemini parsing
+export const insertProductDraftWithSpecsSchema = insertProductDraftSchema
+  .merge(z.object({
+    specifications: productSpecificationsSchema.optional(),
+    // Convert numbers to strings for DB decimal fields
+    rating: z.number().min(0).max(5).transform(String).optional(),
+    monthlyPrice: z.number().positive().transform(String).optional(),
+    originalPrice: z.number().positive().transform(String).optional(),
+    // Array fields with proper validation
+    detailImageUrls: z.array(z.string().url()).default([]),
+    errors: z.array(z.string()).default([]),
+  }));
+
 // Types
 export type User = typeof users.$inferSelect;
 export type UpsertUser = typeof users.$inferInsert;
@@ -276,3 +326,6 @@ export type ChatMessage = typeof chatMessages.$inferSelect;
 export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
+export type ProductDraft = typeof productDrafts.$inferSelect;
+export type InsertProductDraft = z.infer<typeof insertProductDraftSchema>;
+export type InsertProductDraftWithSpecs = z.infer<typeof insertProductDraftWithSpecsSchema>;
