@@ -7,6 +7,7 @@ import {
   insertLeadSchema,
   insertChatMessageSchema,
   insertProductSchema,
+  insertProductWithSpecsSchema,
   insertCategorySchema
 } from "@shared/schema";
 import multer from "multer";
@@ -125,7 +126,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin - Create product
   app.post('/api/products', async (req, res) => {
     try {
-      const productData = insertProductSchema.parse(req.body);
+      // Use enhanced schema with specifications validation
+      const productData = insertProductWithSpecsSchema.parse(req.body);
       const product = await storage.createProduct(productData);
       res.status(201).json(product);
     } catch (error) {

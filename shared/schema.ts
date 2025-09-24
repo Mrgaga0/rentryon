@@ -181,6 +181,8 @@ export const insertProductSchema = createInsertSchema(products).omit({
   updatedAt: true,
 });
 
+// Will be defined after productSpecificationsSchema
+
 export const insertRentalSchema = createInsertSchema(rentals).omit({
   id: true,
   createdAt: true,
@@ -245,6 +247,15 @@ export const productSpecificationsSchema = z.object({
   extraFeatures: z.array(z.string()).default([]), // ["고온", "UV 살균", "IoT 기능"]
   serviceInfo: productServiceInfoSchema.optional(),
 });
+
+// Enhanced product schema with structured specifications validation
+export const insertProductWithSpecsSchema = insertProductSchema
+  .omit({ rating: true }) // Remove auto-generated rating field
+  .merge(z.object({
+    specifications: productSpecificationsSchema,
+    // Accept number and convert to string for DB decimal type  
+    rating: z.number().min(0).max(5).transform(String),
+  }));
 
 // Types
 export type User = typeof users.$inferSelect;

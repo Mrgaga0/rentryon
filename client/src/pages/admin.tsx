@@ -18,7 +18,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 
-// 제품 업로드 폼 스키마
+// 구조화된 제품 업로드 폼 스키마 (레퍼런스 앱 패턴 적용)
 const productFormSchema = z.object({
   nameKo: z.string().min(1, "제품명(한국어)을 입력해주세요"),
   name: z.string().min(1, "제품명(영어)을 입력해주세요"),
@@ -28,13 +28,36 @@ const productFormSchema = z.object({
   monthlyPrice: z.string().min(1, "기본 월 렌탈료를 입력해주세요"),
   originalPrice: z.string().optional(),
   imageUrl: z.string().min(1, "제품 이미지를 업로드해주세요"),
-  modelNumber: z.string().min(1, "모델명을 입력해주세요"),
-  releaseYear: z.string().min(4, "출시년도를 입력해주세요"),
-  dimensions: z.string().min(1, "제품 크기를 입력해주세요"),
-  features: z.string().min(1, "주요 기능을 입력해주세요"),
-  // 의무사용기간 옵션들
-  rentalOptions: z.string().min(1, "의무사용기간 옵션을 설정해주세요"),
-  maintenanceOptions: z.string().min(1, "관리주기 옵션을 설정해주세요"),
+  rating: z.number().min(0).max(5).default(4.5),
+  // 구조화된 스펙 정보
+  modelNumber: z.string().optional(),
+  maker: z.string().optional(),
+  type: z.string().optional(),
+  releaseYear: z.string().optional(),
+  dimensions: z.string().optional(),
+  // 렌탈/관리 옵션
+  rentalOptions: z.array(z.object({
+    months: z.number().min(1),
+    monthlyPrice: z.number().min(0),
+  })).default([]),
+  maintenanceOptions: z.array(z.object({
+    months: z.number().min(1),
+    additionalFee: z.number().min(0),
+    description: z.string().min(1),
+  })).default([]),
+  // 색상/기능/태그
+  colors: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    hex: z.string(),
+  })).default([]),
+  functions: z.array(z.string()).default([]),
+  tags: z.array(z.string()).default([]),
+  extraFeatures: z.array(z.string()).default([]),
+  // 서비스 정보
+  maintenanceDesc: z.string().optional(),
+  warranty: z.string().optional(),
+  installLeadTime: z.string().optional(),
 });
 
 type ProductFormData = z.infer<typeof productFormSchema>;
@@ -67,12 +90,21 @@ export default function AdminPage() {
       monthlyPrice: "",
       originalPrice: "",
       imageUrl: "",
+      rating: 4.5,
       modelNumber: "",
+      maker: "",
+      type: "",
       releaseYear: new Date().getFullYear().toString(),
       dimensions: "",
-      features: "",
-      rentalOptions: "",
-      maintenanceOptions: "",
+      rentalOptions: [{ months: 12, monthlyPrice: 0 }],
+      maintenanceOptions: [{ months: 1, additionalFee: 0, description: "매월 관리" }],
+      colors: [],
+      functions: [],
+      tags: [],
+      extraFeatures: [],
+      maintenanceDesc: "",
+      warranty: "",
+      installLeadTime: "",
     },
   });
 
@@ -103,19 +135,28 @@ export default function AdminPage() {
   // 제품 생성 뮤테이션
   const createProductMutation = useMutation({
     mutationFn: async (data: ProductFormData) => {
-      // 옵션 파싱
-      const rentalOptions = data.rentalOptions ? JSON.parse(data.rentalOptions) : [];
-      const maintenanceOptions = data.maintenanceOptions ? JSON.parse(data.maintenanceOptions) : [];
-
       // specifications JSON 구성
       const specifications = {
-        modelNumber: data.modelNumber,
-        releaseYear: parseInt(data.releaseYear),
-        dimensions: data.dimensions,
-        features: data.features.split(',').map(f => f.trim()).filter(f => f),
+        features: data.functions || [],
+        colors: data.colors || [],
+        functions: data.functions || [],
+        tags: data.tags || [],
+        basicInfo: {
+          modelNumber: data.modelNumber,
+          maker: data.maker,
+          type: data.type,
+          releaseYear: data.releaseYear,
+          dimensions: data.dimensions,
+        },
+        extraFeatures: data.extraFeatures || [],
+        serviceInfo: {
+          maintenanceDesc: data.maintenanceDesc,
+          warranty: data.warranty,
+          installLeadTime: data.installLeadTime,
+        },
         rentalOptions: {
-          minimumPeriod: rentalOptions,
-          maintenanceCycle: maintenanceOptions,
+          minimumPeriod: data.rentalOptions || [],
+          maintenanceCycle: data.maintenanceOptions || [],
         },
       };
 
@@ -126,8 +167,10 @@ export default function AdminPage() {
         categoryId: data.categoryId,
         descriptionKo: data.descriptionKo,
         monthlyPrice: data.monthlyPrice,
-        originalPrice: data.originalPrice || null,
+        // Send undefined instead of null for optional fields to match Drizzle-Zod expectations
+        ...(data.originalPrice && { originalPrice: data.originalPrice }),
         imageUrl: data.imageUrl,
+        rating: data.rating,
         specifications,
       };
 
@@ -621,20 +664,7 @@ export default function AdminPage() {
                             )}
                           />
 
-                          {/* 주요 기능 */}
-                          <FormField
-                            control={form.control}
-                            name="features"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>주요 기능 * (쉼표로 구분)</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="예: 고효율, UV 살균, 온수기능, 냉수기능, 정수기능" {...field} data-testid="input-features" />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+                          {/* 주요 기능 - 구조화된 UI로 교체 예정 (임시로 주석 처리) */}
 
                           {/* 제품 설명 */}
                           <FormField
@@ -668,7 +698,18 @@ export default function AdminPage() {
                                     <Textarea
                                       placeholder='[{"months": 12, "monthlyPrice": 15000}, {"months": 24, "monthlyPrice": 14200}, {"months": 36, "monthlyPrice": 13500}]'
                                       rows={3}
-                                      {...field}
+                                      value={JSON.stringify(field.value, null, 2)}
+                                      onChange={(e) => {
+                                        try {
+                                          const parsed = JSON.parse(e.target.value);
+                                          field.onChange(parsed);
+                                        } catch {
+                                          // Invalid JSON - keep the string value for user to fix
+                                        }
+                                      }}
+                                      onBlur={field.onBlur}
+                                      name={field.name}
+                                      ref={field.ref}
                                       data-testid="textarea-rental-options"
                                     />
                                   </FormControl>
@@ -693,7 +734,18 @@ export default function AdminPage() {
                                     <Textarea
                                       placeholder='[{"months": 1, "additionalFee": 0, "description": "매월 관리"}, {"months": 3, "additionalFee": 5000, "description": "3개월마다 관리"}]'
                                       rows={3}
-                                      {...field}
+                                      value={JSON.stringify(field.value, null, 2)}
+                                      onChange={(e) => {
+                                        try {
+                                          const parsed = JSON.parse(e.target.value);
+                                          field.onChange(parsed);
+                                        } catch {
+                                          // Invalid JSON - keep the string value for user to fix
+                                        }
+                                      }}
+                                      onBlur={field.onBlur}
+                                      name={field.name}
+                                      ref={field.ref}
                                       data-testid="textarea-maintenance-options"
                                     />
                                   </FormControl>
