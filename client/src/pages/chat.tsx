@@ -34,11 +34,20 @@ export default function Chat() {
     },
     onSuccess: (data: any) => {
       // Add both user and AI messages to the state
-      setMessages(prev => [
-        ...prev,
-        data.userMessage,
-        data.aiMessage
-      ]);
+      const newMessages: ChatMessage[] = [];
+      
+      if (data.userMessage && typeof data.userMessage === 'object' && 'isUser' in data.userMessage) {
+        newMessages.push(data.userMessage);
+      }
+      
+      if (data.aiMessage && typeof data.aiMessage === 'object' && 'isUser' in data.aiMessage) {
+        newMessages.push(data.aiMessage);
+      }
+      
+      if (newMessages.length > 0) {
+        setMessages(prev => [...prev, ...newMessages]);
+      }
+      
       setInputMessage("");
     },
     onError: (error) => {
@@ -135,7 +144,7 @@ export default function Chat() {
       <div className="flex-1 overflow-hidden">
         <div className="container mx-auto h-full px-4 py-6">
           <div className="h-full overflow-y-auto space-y-4 mb-4" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-            {messages.map((message) => (
+            {messages.filter(msg => msg && typeof msg.isUser === 'boolean').map((message) => (
               <div
                 key={message.id}
                 className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}

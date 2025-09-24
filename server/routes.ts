@@ -182,6 +182,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/chat', async (req, res) => {
     try {
       const { message, sessionId, userId } = req.body;
+      
+      // Debug logging
+      console.log('Chat request body:', { message, sessionId, userId });
+      
+      // Validate sessionId
+      if (!sessionId) {
+        return res.status(400).json({ message: 'sessionId is required' });
+      }
 
       // Save user message
       const userMessage = await storage.saveChatMessage({
