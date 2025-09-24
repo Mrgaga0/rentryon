@@ -25,7 +25,7 @@ export const motionTokens = {
     exit: [0.4, 0, 1, 1] as const,
   },
 
-  // 변형 값들
+  // 변형 값들 - 브랜드에 맞는 세련된 모션
   transforms: {
     slideDistance: 24,    // 슬라이드 거리 (px)
     fadeOffset: 20,       // 페이드 업 오프셋 (px)
