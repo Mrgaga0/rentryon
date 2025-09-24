@@ -83,6 +83,29 @@ export default function ProductDetail() {
     },
   });
 
+  // 기본 옵션 설정 (product가 로드된 후 한 번만)
+  useEffect(() => {
+    if (!product) return;
+    
+    const specs = (product as any)?.specifications || {};
+    const rentals = specs?.rentalOptions?.minimumPeriod || [];
+    const maintenance = specs?.rentalOptions?.maintenanceCycle || [];
+    
+    if (rentals.length > 0 && !selectedRentalOption) {
+      setSelectedRentalOption(rentals[0]);
+    }
+    if (maintenance.length > 0 && !selectedMaintenanceOption) {
+      setSelectedMaintenanceOption(maintenance[0]);
+    }
+  }, [product]); // product만 dependency로 설정
+
+  // 선택된 옵션과 상담 폼 동기화
+  useEffect(() => {
+    if (selectedRentalOption) {
+      form.setValue("rentalPeriodMonths", selectedRentalOption.months);
+    }
+  }, [selectedRentalOption, form]);
+
   const onSubmitConsultation = (data: ConsultationFormData) => {
     submitConsultationMutation.mutate(data);
   };
@@ -132,9 +155,9 @@ export default function ProductDetail() {
   const monthlyPrice = parseFloat((product as any).monthlyPrice);
 
   // 제품 옵션 가져오기
-  const specifications = (product as any).specifications || {};
-  const rentalOptions = specifications.rentalOptions?.minimumPeriod || [];
-  const maintenanceOptions = specifications.rentalOptions?.maintenanceCycle || [];
+  const specifications = (product as any)?.specifications || {};
+  const rentalOptions = specifications?.rentalOptions?.minimumPeriod || [];
+  const maintenanceOptions = specifications?.rentalOptions?.maintenanceCycle || [];
 
   // 가격 계산
   const calculateTotalPrice = () => {
@@ -142,23 +165,6 @@ export default function ProductDetail() {
     let additionalFee = selectedMaintenanceOption ? selectedMaintenanceOption.additionalFee : 0;
     return basePrice + additionalFee;
   };
-
-  // 기본 옵션 설정 (첫 번째 옵션으로)
-  useEffect(() => {
-    if (rentalOptions.length > 0 && !selectedRentalOption) {
-      setSelectedRentalOption(rentalOptions[0]);
-    }
-    if (maintenanceOptions.length > 0 && !selectedMaintenanceOption) {
-      setSelectedMaintenanceOption(maintenanceOptions[0]);
-    }
-  }, [rentalOptions, maintenanceOptions, selectedRentalOption, selectedMaintenanceOption]);
-
-  // 선택된 옵션과 상담 폼 동기화
-  useEffect(() => {
-    if (selectedRentalOption) {
-      form.setValue("rentalPeriodMonths", selectedRentalOption.months);
-    }
-  }, [selectedRentalOption, form]);
 
   return (
     <div className="min-h-screen bg-background">
