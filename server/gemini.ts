@@ -188,70 +188,129 @@ export async function parseProductsFromExcel(
   fileName: string
 ): Promise<ExcelParseResult> {
   try {
-    // 1. Excel 파일을 다양한 옵션으로 파싱 시도
-    console.log('Trying to parse Excel with different options...');
+    // 1. Excel 파일을 다양한 방법으로 강력하게 파싱 (한글 시트명 호환성 개선)
+    console.log('Starting robust Excel parsing with multiple fallback strategies...');
     
-    // 먼저 기본 옵션으로 시도
-    let workbook = XLSX.read(buffer, { type: 'buffer' });
-    console.log('Basic parsing - SheetNames:', workbook.SheetNames, 'Sheets keys:', Object.keys(workbook.Sheets));
+    let workbook: any = null;
+    const parseAttempts = [
+      // 1차: ArrayBuffer 접근법
+      () => {
+        const ab = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+        return XLSX.read(ab, { type: 'array', dense: true, cellDates: true });
+      },
+      // 2차: Uint8Array 접근법
+      () => XLSX.read(new Uint8Array(buffer), { type: 'array', dense: true, cellDates: true }),
+      // 3차: Array with raw mode
+      () => XLSX.read(new Uint8Array(buffer), { type: 'array', dense: true, cellDates: true, raw: true }),
+      // 4차: Buffer with extended options
+      () => XLSX.read(buffer, { type: 'buffer', cellDates: true, cellStyles: true, sheetStubs: true }),
+      // 5차: Buffer with raw mode
+      () => XLSX.read(buffer, { type: 'buffer', raw: true }),
+      // 6차: Binary string fallback (UTF-8)
+      () => XLSX.read(buffer.toString('binary'), { type: 'binary', codepage: 65001 }),
+      // 7차: Binary string with Korean legacy encoding (CP949)
+      () => XLSX.read(buffer.toString('binary'), { type: 'binary', codepage: 949 })
+    ];
     
-    // 시트 데이터가 없으면 다른 옵션들을 시도
-    if (workbook.SheetNames.length > 0 && Object.keys(workbook.Sheets).length === 0) {
-      console.log('Empty sheets detected, trying alternative parsing options...');
-      
-      // 옵션 1: cellStyles 활성화
-      workbook = XLSX.read(buffer, { type: 'buffer', cellStyles: true });
-      console.log('With cellStyles - Sheets keys:', Object.keys(workbook.Sheets));
-      
-      if (Object.keys(workbook.Sheets).length === 0) {
-        // 옵션 2: cellFormula, cellHTML 등 추가 옵션
-        workbook = XLSX.read(buffer, { 
-          type: 'buffer', 
-          cellStyles: true, 
-          cellFormula: true,
-          cellHTML: true,
-          cellDates: true
-        });
-        console.log('With extended options - Sheets keys:', Object.keys(workbook.Sheets));
+    for (let i = 0; i < parseAttempts.length; i++) {
+      try {
+        console.log(`Parse attempt ${i + 1}...`);
+        workbook = parseAttempts[i]();
+        const hasSheetNames = workbook.SheetNames && workbook.SheetNames.length > 0;
+        const hasSheets = Object.keys(workbook.Sheets || {}).length > 0;
+        
+        console.log(`Attempt ${i + 1} result - SheetNames:`, workbook.SheetNames, 'Sheets keys:', Object.keys(workbook.Sheets || {}));
+        
+        if (hasSheetNames && hasSheets) {
+          console.log(`Parse attempt ${i + 1} successful!`);
+          break;
+        }
+      } catch (error) {
+        console.log(`Parse attempt ${i + 1} failed:`, error instanceof Error ? error.message : String(error));
+        workbook = null;
       }
-      
-      if (Object.keys(workbook.Sheets).length === 0) {
-        // 옵션 3: 다른 파싱 옵션 시도
-        workbook = XLSX.read(buffer, { type: 'buffer', cellText: false, cellNF: true });
-        console.log('With cellText/cellNF options - Sheets keys:', Object.keys(workbook.Sheets));
-      }
-      
-      if (Object.keys(workbook.Sheets).length === 0) {
-        // 옵션 4: raw 모드
-        workbook = XLSX.read(buffer, { type: 'buffer', raw: true });
-        console.log('With raw mode - Sheets keys:', Object.keys(workbook.Sheets));
-      }
+    }
+    
+    // 모든 시도가 실패했거나 여전히 빈 결과
+    if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0 || Object.keys(workbook.Sheets || {}).length === 0) {
+      throw new Error('Excel 파일을 파싱할 수 없습니다. 파일이 손상되었거나 지원되지 않는 형식일 수 있습니다.');
     }
     const sheetNames = workbook.SheetNames;
     console.log('Excel sheets found:', sheetNames);
-    
-    console.log('First sheet name:', sheetNames[0]);
     console.log('Available sheet keys in workbook.Sheets:', Object.keys(workbook.Sheets));
-    console.log('Sheet names vs actual keys comparison:', {
-      sheetNames: sheetNames,
-      actualKeys: Object.keys(workbook.Sheets),
-      areEqual: JSON.stringify(sheetNames) === JSON.stringify(Object.keys(workbook.Sheets))
-    });
     
-    // 다양한 방법으로 시트에 접근 시도
-    let firstSheet = workbook.Sheets[sheetNames[0]];
+    // 2. 강력한 시트 선택 로직: 실제로 사용 가능한 첫 번째 시트를 찾음
+    let firstSheet = null;
+    let selectedSheetName = '';
     
-    if (!firstSheet && Object.keys(workbook.Sheets).length > 0) {
-      // 시트 이름 인코딩 문제일 경우 첫 번째 시트를 가져옴
-      const actualFirstKey = Object.keys(workbook.Sheets)[0];
-      console.log('Trying first available sheet key:', actualFirstKey);
-      firstSheet = workbook.Sheets[actualFirstKey];
+    // 시트명 순서대로 실제 사용 가능한 시트를 찾음
+    for (const sheetName of sheetNames) {
+      const sheet = workbook.Sheets[sheetName];
+      if (sheet) {
+        // 시트가 존재하고 ref가 있거나 데이터가 있는지 확인
+        const hasRef = sheet['!ref'];
+        if (hasRef) {
+          console.log(`Found valid sheet with !ref: "${sheetName}"`);
+          firstSheet = sheet;
+          selectedSheetName = sheetName;
+          break;
+        } else {
+          // !ref가 없어도 실제 데이터가 있는지 확인
+          try {
+            const testData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+            if (testData.length > 0) {
+              console.log(`Found valid sheet without !ref but with data: "${sheetName}"`);
+              firstSheet = sheet;
+              selectedSheetName = sheetName;
+              break;
+            }
+          } catch (error) {
+            console.log(`Sheet "${sheetName}" test failed:`, error instanceof Error ? error.message : String(error));
+          }
+        }
+      }
+    }
+    
+    // 시트명으로 찾지 못한 경우, 실제 시트 키로 시도
+    if (!firstSheet) {
+      const availableKeys = Object.keys(workbook.Sheets);
+      console.log('No valid sheet found by name, trying available keys:', availableKeys);
+      
+      for (const key of availableKeys) {
+        const sheet = workbook.Sheets[key];
+        if (sheet) {
+          const hasRef = sheet['!ref'];
+          if (hasRef) {
+            console.log(`Found valid sheet by key with !ref: "${key}"`);
+            firstSheet = sheet;
+            selectedSheetName = key;
+            break;
+          } else {
+            try {
+              const testData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+              if (testData.length > 0) {
+                console.log(`Found valid sheet by key without !ref but with data: "${key}"`);
+                firstSheet = sheet;
+                selectedSheetName = key;
+                break;
+              }
+            } catch (error) {
+              console.log(`Sheet key "${key}" test failed:`, error instanceof Error ? error.message : String(error));
+            }
+          }
+        }
+      }
     }
     
     // 시트 존재 확인
     if (!firstSheet) {
-      throw new Error(`Excel 시트를 찾을 수 없습니다. 요청된 시트: "${sheetNames[0]}", 사용 가능한 시트: [${Object.keys(workbook.Sheets).join(', ')}]`);
+      const errorMsg = sheetNames.length > 0 
+        ? `Excel 시트를 찾을 수 없습니다. 시트명: [${sheetNames.join(', ')}], 사용 가능한 키: [${Object.keys(workbook.Sheets).join(', ')}]`
+        : `Excel 파일에 사용 가능한 시트가 없습니다. 사용 가능한 키: [${Object.keys(workbook.Sheets).join(', ')}]`;
+      throw new Error(errorMsg);
     }
+    
+    console.log(`Successfully selected sheet: "${selectedSheetName}"`);
     
     // 시트 범위 확인 (방어적 코드)
     const sheetRef = firstSheet['!ref'];
@@ -369,7 +428,7 @@ export async function parseProductsFromExcel(
         });
 
         // 최종 매핑 결과를 사용해서 ProductDraft 형식으로 변환
-        const draftData = convertRowToDraft(rowData, finalMapping, fileName, sheetNames[0], i);
+        const draftData = convertRowToDraft(rowData, finalMapping, fileName, selectedSheetName, i);
         
         // 스키마 검증
         const validatedDraft = insertProductDraftWithSpecsSchema.parse(draftData);
