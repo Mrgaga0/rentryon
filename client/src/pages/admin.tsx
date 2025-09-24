@@ -664,7 +664,176 @@ export default function AdminPage() {
                             )}
                           />
 
-                          {/* 주요 기능 - 구조화된 UI로 교체 예정 (임시로 주석 처리) */}
+                          {/* 컬러 옵션 */}
+                          <div className="col-span-1 md:col-span-2">
+                            <FormField
+                              control={form.control}
+                              name="colors"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>컬러 옵션</FormLabel>
+                                  <div className="space-y-2">
+                                    {field.value.map((color, index) => (
+                                      <div key={index} className="flex items-center gap-2 p-2 border rounded-md">
+                                        <div 
+                                          className="w-6 h-6 rounded-full border"
+                                          style={{ backgroundColor: color.hex }}
+                                        />
+                                        <span className="flex-1">{color.name}</span>
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => {
+                                            const newColors = field.value.filter((_, i) => i !== index);
+                                            field.onChange(newColors);
+                                          }}
+                                          data-testid={`button-remove-color-${index}`}
+                                        >
+                                          제거
+                                        </Button>
+                                      </div>
+                                    ))}
+                                    <div className="flex gap-2">
+                                      <Input
+                                        placeholder="컬러명 (예: 화이트)"
+                                        id="new-color-name"
+                                        data-testid="input-new-color-name"
+                                      />
+                                      <Input
+                                        type="color"
+                                        id="new-color-hex"
+                                        className="w-16"
+                                        data-testid="input-new-color-hex"
+                                      />
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => {
+                                          const nameInput = document.getElementById('new-color-name') as HTMLInputElement;
+                                          const hexInput = document.getElementById('new-color-hex') as HTMLInputElement;
+                                          if (nameInput.value && hexInput.value) {
+                                            const newColor = {
+                                              id: nameInput.value.toLowerCase().replace(/\s+/g, '-'),
+                                              name: nameInput.value,
+                                              hex: hexInput.value,
+                                            };
+                                            field.onChange([...field.value, newColor]);
+                                            nameInput.value = '';
+                                            hexInput.value = '#000000';
+                                          }
+                                        }}
+                                        data-testid="button-add-color"
+                                      >
+                                        추가
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+
+                          {/* 주요 기능 */}
+                          <div className="col-span-1 md:col-span-2">
+                            <FormField
+                              control={form.control}
+                              name="functions"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>주요 기능</FormLabel>
+                                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                    {['냉수', '온수', '정수', 'UV 살균', '얼음 제조', 'IoT 기능', '자동 청소', '절전 모드'].map((func) => (
+                                      <div key={func} className="flex items-center space-x-2">
+                                        <input
+                                          type="checkbox"
+                                          id={`function-${func}`}
+                                          checked={field.value.includes(func)}
+                                          onChange={(e) => {
+                                            const newFunctions = e.target.checked
+                                              ? [...field.value, func]
+                                              : field.value.filter((f) => f !== func);
+                                            field.onChange(newFunctions);
+                                          }}
+                                          data-testid={`checkbox-function-${func}`}
+                                        />
+                                        <label htmlFor={`function-${func}`} className="text-sm">
+                                          {func}
+                                        </label>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+
+                          {/* 태그 */}
+                          <div className="col-span-1 md:col-span-2">
+                            <FormField
+                              control={form.control}
+                              name="tags"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>태그</FormLabel>
+                                  <div className="space-y-2">
+                                    <div className="flex flex-wrap gap-2">
+                                      {field.value.map((tag, index) => (
+                                        <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                                          {tag}
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const newTags = field.value.filter((_, i) => i !== index);
+                                              field.onChange(newTags);
+                                            }}
+                                            className="ml-1 text-xs hover:text-red-500"
+                                            data-testid={`button-remove-tag-${index}`}
+                                          >
+                                            ×
+                                          </button>
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <Input
+                                        placeholder="태그 입력 (예: 베스트, 신제품)"
+                                        id="new-tag"
+                                        onKeyPress={(e) => {
+                                          if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            const input = e.target as HTMLInputElement;
+                                            if (input.value && !field.value.includes(input.value)) {
+                                              field.onChange([...field.value, input.value]);
+                                              input.value = '';
+                                            }
+                                          }
+                                        }}
+                                        data-testid="input-new-tag"
+                                      />
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => {
+                                          const input = document.getElementById('new-tag') as HTMLInputElement;
+                                          if (input.value && !field.value.includes(input.value)) {
+                                            field.onChange([...field.value, input.value]);
+                                            input.value = '';
+                                          }
+                                        }}
+                                        data-testid="button-add-tag"
+                                      >
+                                        추가
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
 
                           {/* 제품 설명 */}
                           <FormField
@@ -694,28 +863,67 @@ export default function AdminPage() {
                               render={({ field }) => (
                                 <FormItem>
                                   <FormLabel>의무사용기간 옵션 *</FormLabel>
-                                  <FormControl>
-                                    <Textarea
-                                      placeholder='[{"months": 12, "monthlyPrice": 15000}, {"months": 24, "monthlyPrice": 14200}, {"months": 36, "monthlyPrice": 13500}]'
-                                      rows={3}
-                                      value={JSON.stringify(field.value, null, 2)}
-                                      onChange={(e) => {
-                                        try {
-                                          const parsed = JSON.parse(e.target.value);
-                                          field.onChange(parsed);
-                                        } catch {
-                                          // Invalid JSON - keep the string value for user to fix
-                                        }
+                                  <div className="space-y-3">
+                                    {field.value.map((option, index) => (
+                                      <div key={index} className="flex items-center gap-2 p-3 border rounded-md bg-muted/30">
+                                        <div className="flex items-center gap-2 flex-1">
+                                          <label className="text-sm font-medium min-w-12">기간:</label>
+                                          <Input
+                                            type="number"
+                                            placeholder="12"
+                                            value={option.months}
+                                            onChange={(e) => {
+                                              const newOptions = [...field.value];
+                                              newOptions[index] = { ...option, months: parseInt(e.target.value) || 0 };
+                                              field.onChange(newOptions);
+                                            }}
+                                            className="w-20"
+                                            data-testid={`input-rental-months-${index}`}
+                                          />
+                                          <span className="text-sm">개월</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 flex-1">
+                                          <label className="text-sm font-medium min-w-16">월 렌탈료:</label>
+                                          <Input
+                                            type="number"
+                                            placeholder="15000"
+                                            value={option.monthlyPrice}
+                                            onChange={(e) => {
+                                              const newOptions = [...field.value];
+                                              newOptions[index] = { ...option, monthlyPrice: parseInt(e.target.value) || 0 };
+                                              field.onChange(newOptions);
+                                            }}
+                                            className="w-24"
+                                            data-testid={`input-rental-price-${index}`}
+                                          />
+                                          <span className="text-sm">원</span>
+                                        </div>
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => {
+                                            const newOptions = field.value.filter((_, i) => i !== index);
+                                            field.onChange(newOptions);
+                                          }}
+                                          data-testid={`button-remove-rental-${index}`}
+                                        >
+                                          제거
+                                        </Button>
+                                      </div>
+                                    ))}
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      onClick={() => {
+                                        field.onChange([...field.value, { months: 12, monthlyPrice: 0 }]);
                                       }}
-                                      onBlur={field.onBlur}
-                                      name={field.name}
-                                      ref={field.ref}
-                                      data-testid="textarea-rental-options"
-                                    />
-                                  </FormControl>
-                                  <p className="text-xs text-muted-foreground">
-                                    JSON 형식으로 입력하세요. 예: months(개월), monthlyPrice(월 렌탈료)
-                                  </p>
+                                      className="w-full"
+                                      data-testid="button-add-rental-option"
+                                    >
+                                      + 의무사용기간 옵션 추가
+                                    </Button>
+                                  </div>
                                   <FormMessage />
                                 </FormItem>
                               )}
@@ -730,28 +938,80 @@ export default function AdminPage() {
                               render={({ field }) => (
                                 <FormItem>
                                   <FormLabel>관리주기 옵션 *</FormLabel>
-                                  <FormControl>
-                                    <Textarea
-                                      placeholder='[{"months": 1, "additionalFee": 0, "description": "매월 관리"}, {"months": 3, "additionalFee": 5000, "description": "3개월마다 관리"}]'
-                                      rows={3}
-                                      value={JSON.stringify(field.value, null, 2)}
-                                      onChange={(e) => {
-                                        try {
-                                          const parsed = JSON.parse(e.target.value);
-                                          field.onChange(parsed);
-                                        } catch {
-                                          // Invalid JSON - keep the string value for user to fix
-                                        }
+                                  <div className="space-y-3">
+                                    {field.value.map((option, index) => (
+                                      <div key={index} className="flex items-center gap-2 p-3 border rounded-md bg-muted/30">
+                                        <div className="flex items-center gap-2">
+                                          <label className="text-sm font-medium min-w-12">주기:</label>
+                                          <Input
+                                            type="number"
+                                            placeholder="1"
+                                            value={option.months}
+                                            onChange={(e) => {
+                                              const newOptions = [...field.value];
+                                              newOptions[index] = { ...option, months: parseInt(e.target.value) || 0 };
+                                              field.onChange(newOptions);
+                                            }}
+                                            className="w-20"
+                                            data-testid={`input-maintenance-months-${index}`}
+                                          />
+                                          <span className="text-sm">개월</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <label className="text-sm font-medium min-w-16">추가 비용:</label>
+                                          <Input
+                                            type="number"
+                                            placeholder="0"
+                                            value={option.additionalFee}
+                                            onChange={(e) => {
+                                              const newOptions = [...field.value];
+                                              newOptions[index] = { ...option, additionalFee: parseInt(e.target.value) || 0 };
+                                              field.onChange(newOptions);
+                                            }}
+                                            className="w-24"
+                                            data-testid={`input-maintenance-fee-${index}`}
+                                          />
+                                          <span className="text-sm">원</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 flex-1">
+                                          <label className="text-sm font-medium">설명:</label>
+                                          <Input
+                                            placeholder="매월 무료 관리"
+                                            value={option.description}
+                                            onChange={(e) => {
+                                              const newOptions = [...field.value];
+                                              newOptions[index] = { ...option, description: e.target.value };
+                                              field.onChange(newOptions);
+                                            }}
+                                            data-testid={`input-maintenance-desc-${index}`}
+                                          />
+                                        </div>
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => {
+                                            const newOptions = field.value.filter((_, i) => i !== index);
+                                            field.onChange(newOptions);
+                                          }}
+                                          data-testid={`button-remove-maintenance-${index}`}
+                                        >
+                                          제거
+                                        </Button>
+                                      </div>
+                                    ))}
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      onClick={() => {
+                                        field.onChange([...field.value, { months: 1, additionalFee: 0, description: "매월 관리" }]);
                                       }}
-                                      onBlur={field.onBlur}
-                                      name={field.name}
-                                      ref={field.ref}
-                                      data-testid="textarea-maintenance-options"
-                                    />
-                                  </FormControl>
-                                  <p className="text-xs text-muted-foreground">
-                                    JSON 형식으로 입력하세요. 예: months(주기), additionalFee(추가 비용), description(설명)
-                                  </p>
+                                      className="w-full"
+                                      data-testid="button-add-maintenance-option"
+                                    >
+                                      + 관리주기 옵션 추가
+                                    </Button>
+                                  </div>
                                   <FormMessage />
                                 </FormItem>
                               )}
