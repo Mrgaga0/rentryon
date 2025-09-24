@@ -2,7 +2,7 @@ import type { Express } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { getProductRecommendations, processChatMessage } from "./gemini";
+import { getProductRecommendations, processChatMessage, parseProductsFromExcel } from "./gemini";
 import {
   insertLeadSchema,
   insertChatMessageSchema,
@@ -44,6 +44,25 @@ const upload = multer({
   }
 });
 
+// Excel 파일 업로드를 위한 별도 설정
+const excelUpload = multer({
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB 제한
+  },
+  fileFilter: (req, file, cb) => {
+    // Excel 파일만 허용
+    const allowedMimes = [
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+    if (allowedMimes.includes(file.mimetype) || file.originalname.match(/\.(xlsx|xls)$/)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Excel 파일만 업로드 가능합니다. (.xlsx, .xls)'));
+    }
+  }
+});
+
 export async function registerRoutes(app: Express): Promise<Server> {
 
   // 정적 파일 서빙 설정
@@ -64,6 +83,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Image upload error:', error);
       res.status(500).json({ message: '이미지 업로드에 실패했습니다.' });
+    }
+  });
+
+  // Excel 파일 업로드 및 파싱 엔드포인트
+  app.post('/api/upload/excel-products', excelUpload.single('excel'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: 'Excel 파일을 선택해주세요.' });
+      }
+
+      console.log(`Processing Excel file: ${req.file.originalname}`);
+      
+      // parseProductsFromExcel 함수를 사용하여 Excel 파일 파싱
+      const result = await parseProductsFromExcel(req.file.buffer, req.file.originalname);
+      
+      res.json({
+        message: 'Excel 파일이 성공적으로 파싱되었습니다.',
+        data: result
+      });
+      
+    } catch (error) {
+      console.error('Excel parsing error:', error);
+      res.status(500).json({ 
+        message: 'Excel 파일 파싱에 실패했습니다.',
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 

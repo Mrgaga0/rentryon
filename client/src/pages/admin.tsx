@@ -67,10 +67,77 @@ export default function AdminPage() {
   const [showProductForm, setShowProductForm] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [uploadingExcel, setUploadingExcel] = useState(false);
+  const [excelResults, setExcelResults] = useState<any>(null);
   const { toast } = useToast();
 
   const handleLogout = () => {
     navigate("/home");
+  };
+
+  // Excel 파일 선택 처리
+  const handleExcelFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingExcel(true);
+    setExcelResults(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('excel', file);
+
+      const response = await fetch('/api/upload/excel-products', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Excel 파일 업로드에 실패했습니다.');
+      }
+
+      const result = await response.json();
+      setExcelResults(result.data);
+
+      toast({
+        title: "Excel 파싱 완료",
+        description: `${result.data.stats.successfullyParsed}개 제품이 성공적으로 파싱되었습니다.`,
+      });
+
+    } catch (error) {
+      console.error('Excel upload error:', error);
+      toast({
+        title: "Excel 업로드 실패",
+        description: error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingExcel(false);
+      // 파일 input 초기화
+      event.target.value = '';
+    }
+  };
+
+  // 제품 초안 저장 처리  
+  const handleSaveDrafts = async () => {
+    if (!excelResults?.drafts?.length) return;
+
+    try {
+      // TODO: 제품 초안 저장 API 구현 필요
+      toast({
+        title: "기능 준비중",
+        description: "제품 초안 저장 기능이 곧 제공될 예정입니다.",
+        variant: "default",
+      });
+    } catch (error) {
+      console.error('Save drafts error:', error);
+      toast({
+        title: "저장 실패",
+        description: "제품 초안 저장 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    }
   };
 
   // 카테고리 조회
@@ -286,7 +353,7 @@ export default function AdminPage() {
           transition={{ delay: 0.2 }}
         >
           <Tabs defaultValue="dashboard" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="dashboard" data-testid="tab-dashboard">
                 <BarChart3 className="h-4 w-4 mr-2" />
                 대시보드
@@ -298,6 +365,10 @@ export default function AdminPage() {
               <TabsTrigger value="products" data-testid="tab-products">
                 <Package className="h-4 w-4 mr-2" />
                 제품
+              </TabsTrigger>
+              <TabsTrigger value="excel" data-testid="tab-excel">
+                <Upload className="h-4 w-4 mr-2" />
+                Excel 업로드
               </TabsTrigger>
               <TabsTrigger value="rentals" data-testid="tab-rentals">
                 <MessageCircle className="h-4 w-4 mr-2" />
@@ -1058,6 +1129,150 @@ export default function AdminPage() {
                   <p className="text-muted-foreground">
                     등록된 제품 목록 및 수정 기능은 곧 추가될 예정입니다.
                   </p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="excel" className="space-y-6">
+              <Card data-testid="excel-upload-card">
+                <CardHeader>
+                  <CardTitle>Excel 파일로 제품 일괄 등록</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Excel 파일을 업로드하여 여러 제품을 한 번에 등록할 수 있습니다. AI가 자동으로 컬럼을 분석하여 매핑합니다.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Excel 파일 업로드 UI */}
+                  <div className="space-y-4">
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                      <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                      <div className="space-y-2">
+                        <p className="text-lg font-medium">Excel 파일을 선택하세요</p>
+                        <p className="text-sm text-gray-600">
+                          .xlsx 또는 .xls 파일만 업로드 가능합니다. (최대 10MB)
+                        </p>
+                      </div>
+                      <div className="mt-4">
+                        <Input
+                          type="file"
+                          accept=".xlsx,.xls"
+                          onChange={handleExcelFileSelect}
+                          className="hidden"
+                          id="excel-file-input"
+                          data-testid="input-excel-file"
+                        />
+                        <Button
+                          type="button"
+                          onClick={() => document.getElementById('excel-file-input')?.click()}
+                          disabled={uploadingExcel}
+                          data-testid="button-select-excel"
+                        >
+                          {uploadingExcel ? (
+                            <>
+                              <Upload className="h-4 w-4 mr-2 animate-spin" />
+                              업로드 중...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="h-4 w-4 mr-2" />
+                              파일 선택
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* 업로드 결과 표시 */}
+                    {excelResults && (
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold">파싱 결과</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <Card>
+                            <CardContent className="pt-4">
+                              <div className="text-center">
+                                <p className="text-2xl font-bold text-green-600">{excelResults.stats?.successfullyParsed || 0}</p>
+                                <p className="text-sm text-gray-600">성공</p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                          <Card>
+                            <CardContent className="pt-4">
+                              <div className="text-center">
+                                <p className="text-2xl font-bold text-red-600">{excelResults.stats?.errors || 0}</p>
+                                <p className="text-sm text-gray-600">오류</p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                          <Card>
+                            <CardContent className="pt-4">
+                              <div className="text-center">
+                                <p className="text-2xl font-bold text-blue-600">{excelResults.stats?.totalRows || 0}</p>
+                                <p className="text-sm text-gray-600">전체 행</p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                        
+                        {/* 매핑 정보 */}
+                        {excelResults.mapping && (
+                          <Card>
+                            <CardContent className="pt-4">
+                              <h4 className="font-semibold mb-2">매핑 정보</h4>
+                              <div className="space-y-2">
+                                <p className="text-sm">
+                                  <span className="font-medium">매핑 방식:</span> {excelResults.mapping.source === 'ai' ? 'AI 자동 매핑' : '키워드 기반 매핑'}
+                                </p>
+                                <p className="text-sm">
+                                  <span className="font-medium">신뢰도:</span> {Math.round((excelResults.mapping.confidence || 0) * 100)}%
+                                </p>
+                                {excelResults.mapping.missingEssentials?.length > 0 && (
+                                  <p className="text-sm text-yellow-600">
+                                    <span className="font-medium">누락된 필수 필드:</span> {excelResults.mapping.missingEssentials.join(', ')}
+                                  </p>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+                        
+                        {/* 오류 목록 */}
+                        {excelResults.errors?.length > 0 && (
+                          <Card>
+                            <CardContent className="pt-4">
+                              <h4 className="font-semibold mb-2">오류 목록</h4>
+                              <div className="max-h-40 overflow-y-auto space-y-2">
+                                {excelResults.errors.slice(0, 10).map((error: any, index: number) => (
+                                  <div key={index} className="text-sm p-2 bg-red-50 border border-red-200 rounded">
+                                    <p className="font-medium">행 {error.row}: {error.error}</p>
+                                  </div>
+                                ))}
+                                {excelResults.errors.length > 10 && (
+                                  <p className="text-sm text-gray-600">... 및 {excelResults.errors.length - 10}개 추가 오류</p>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+                        
+                        <div className="flex space-x-2">
+                          <Button
+                            onClick={() => setExcelResults(null)}
+                            variant="outline"
+                            data-testid="button-clear-results"
+                          >
+                            결과 지우기
+                          </Button>
+                          <Button
+                            onClick={handleSaveDrafts}
+                            disabled={!excelResults.drafts?.length}
+                            data-testid="button-save-drafts"
+                          >
+                            제품 초안 저장 ({excelResults.drafts?.length || 0}개)
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
