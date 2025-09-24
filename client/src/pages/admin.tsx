@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Settings, Users, Package, BarChart3, MessageCircle, LogOut, Plus, Upload } from "lucide-react";
+import { Settings, Users, Package, BarChart3, MessageCircle, LogOut, Plus, Upload, Eye, Edit, Trash2, Check, X, Image, FileText } from "lucide-react";
 import { motion } from "framer-motion";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
@@ -69,6 +69,12 @@ export default function AdminPage() {
   const [dragActive, setDragActive] = useState(false);
   const [uploadingExcel, setUploadingExcel] = useState(false);
   const [excelResults, setExcelResults] = useState<any>(null);
+  
+  // Imports 탭 상태 관리
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [selectedDrafts, setSelectedDrafts] = useState<string[]>([]);
+  const [editingDraft, setEditingDraft] = useState<any>(null);
+  
   const { toast } = useToast();
 
   const handleLogout = () => {
@@ -124,17 +130,38 @@ export default function AdminPage() {
     if (!excelResults?.drafts?.length) return;
 
     try {
-      // TODO: 제품 초안 저장 API 구현 필요
-      toast({
-        title: "기능 준비중",
-        description: "제품 초안 저장 기능이 곧 제공될 예정입니다.",
-        variant: "default",
+      const response = await fetch('/api/drafts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ drafts: excelResults.drafts }),
+        credentials: 'include',
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Draft 저장에 실패했습니다.');
+      }
+
+      const savedDrafts = await response.json();
+      
+      toast({
+        title: "Draft 저장 완료",
+        description: `${savedDrafts.length}개의 제품 초안이 저장되었습니다.`,
+      });
+      
+      // Clear Excel results after successful save
+      setExcelResults(null);
+      
+      // Refresh the drafts query if we're on the imports tab
+      queryClient.invalidateQueries({ queryKey: ['/api/drafts'] });
+      
     } catch (error) {
       console.error('Save drafts error:', error);
       toast({
         title: "저장 실패",
-        description: "제품 초안 저장 중 오류가 발생했습니다.",
+        description: error instanceof Error ? error.message : "제품 초안 저장 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     }
@@ -143,6 +170,76 @@ export default function AdminPage() {
   // 카테고리 조회
   const { data: categories = [], isLoading: categoriesLoading } = useQuery<any[]>({
     queryKey: ['/api/categories'],
+  });
+
+  // Draft 목록 조회 (Imports 탭용)
+  const { data: drafts = [], isLoading: draftsLoading, refetch: refetchDrafts } = useQuery<any[]>({
+    queryKey: ['/api/drafts', { status: statusFilter !== 'all' ? statusFilter : undefined }],
+    enabled: statusFilter !== undefined,
+  });
+
+  // Draft 승인 뮤테이션
+  const approveDraftMutation = useMutation({
+    mutationFn: async (draftId: string) => {
+      const response = await fetch(`/api/drafts/${draftId}/approve`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Draft 승인에 실패했습니다.');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Draft 승인 완료",
+        description: `"${data.product?.nameKo || 'Unknown'}" 제품이 생성되었습니다.`,
+      });
+      refetchDrafts();
+      queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "승인 실패",
+        description: error.message || "Draft 승인 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Draft 삭제 뮤테이션
+  const deleteDraftMutation = useMutation({
+    mutationFn: async (draftId: string) => {
+      const response = await fetch(`/api/drafts/${draftId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Draft 삭제에 실패했습니다.');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Draft 삭제 완료",
+        description: "제품 초안이 삭제되었습니다.",
+      });
+      refetchDrafts();
+      setSelectedDrafts(prev => prev.filter(id => !prev.includes(id)));
+    },
+    onError: (error: any) => {
+      toast({
+        title: "삭제 실패",
+        description: error.message || "Draft 삭제 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    },
   });
 
   // 제품 업로드 폼
@@ -353,7 +450,7 @@ export default function AdminPage() {
           transition={{ delay: 0.2 }}
         >
           <Tabs defaultValue="dashboard" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="dashboard" data-testid="tab-dashboard">
                 <BarChart3 className="h-4 w-4 mr-2" />
                 대시보드
@@ -365,6 +462,10 @@ export default function AdminPage() {
               <TabsTrigger value="products" data-testid="tab-products">
                 <Package className="h-4 w-4 mr-2" />
                 제품
+              </TabsTrigger>
+              <TabsTrigger value="imports" data-testid="tab-imports">
+                <Upload className="h-4 w-4 mr-2" />
+                Imports
               </TabsTrigger>
               <TabsTrigger value="excel" data-testid="tab-excel">
                 <Upload className="h-4 w-4 mr-2" />
@@ -1131,6 +1232,142 @@ export default function AdminPage() {
                   </p>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="imports" className="space-y-6">
+              {/* Imports Tab - Draft Management System */}
+              <div className="space-y-6">
+                {/* Header with actions */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold">제품 Import 관리</h2>
+                    <p className="text-muted-foreground">Excel에서 가져온 제품 초안을 관리하고 승인합니다.</p>
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => refetchDrafts()}
+                      disabled={draftsLoading}
+                      data-testid="button-refresh-drafts"
+                    >
+                      새로고침
+                    </Button>
+                    <Button 
+                      disabled={selectedDrafts.length === 0}
+                      data-testid="button-bulk-approve"
+                    >
+                      일괄 승인 ({selectedDrafts.length})
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Draft List Card */}
+                <Card data-testid="drafts-list-card">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle>제품 초안 목록</CardTitle>
+                      <div className="flex items-center space-x-2">
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                          <SelectTrigger className="w-32" data-testid="select-status-filter">
+                            <SelectValue placeholder="상태" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">전체</SelectItem>
+                            <SelectItem value="pending">대기중</SelectItem>
+                            <SelectItem value="approved">승인됨</SelectItem>
+                            <SelectItem value="rejected">거절됨</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {draftsLoading ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        제품 초안 목록을 로드하는 중...
+                      </div>
+                    ) : drafts.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        {statusFilter === 'all' ? '등록된 제품 초안이 없습니다.' : `${statusFilter} 상태의 제품 초안이 없습니다.`}
+                        <p className="text-sm mt-2">Excel 업로드 탭에서 제품을 업로드하고 저장해보세요.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {/* Draft 목록 테이블 */}
+                        <div className="rounded-md border">
+                          <div className="grid grid-cols-6 gap-4 p-4 font-medium text-sm bg-muted/50">
+                            <div>제품명</div>
+                            <div>브랜드</div>
+                            <div>카테고리</div>
+                            <div>월 렌탈료</div>
+                            <div>상태</div>
+                            <div>작업</div>
+                          </div>
+                          {drafts.map((draft) => (
+                            <div key={draft.id} className="grid grid-cols-6 gap-4 p-4 border-t items-center">
+                              <div>
+                                <p className="font-medium">{draft.nameKo || 'N/A'}</p>
+                                <p className="text-sm text-muted-foreground">{draft.name || 'N/A'}</p>
+                              </div>
+                              <div>{draft.brand || 'N/A'}</div>
+                              <div>{draft.category?.nameKo || 'N/A'}</div>
+                              <div>
+                                {draft.monthlyPrice ? `${draft.monthlyPrice.toLocaleString()}원` : 'N/A'}
+                              </div>
+                              <div>
+                                <Badge 
+                                  variant={
+                                    draft.status === 'approved' ? 'default' : 
+                                    draft.status === 'pending' ? 'secondary' : 'destructive'
+                                  }
+                                >
+                                  {draft.status === 'approved' ? '승인됨' : 
+                                   draft.status === 'pending' ? '대기중' : '거절됨'}
+                                </Badge>
+                              </div>
+                              <div className="flex space-x-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setEditingDraft(draft)}
+                                  data-testid={`button-edit-draft-${draft.id}`}
+                                >
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                                {draft.status === 'pending' && (
+                                  <Button
+                                    size="sm"
+                                    variant="default"
+                                    onClick={() => approveDraftMutation.mutate(draft.id)}
+                                    disabled={approveDraftMutation.isPending}
+                                    data-testid={`button-approve-draft-${draft.id}`}
+                                  >
+                                    <Check className="h-3 w-3" />
+                                  </Button>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => deleteDraftMutation.mutate(draft.id)}
+                                  disabled={deleteDraftMutation.isPending}
+                                  data-testid={`button-delete-draft-${draft.id}`}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {/* 페이지네이션 (향후 추가 예정) */}
+                        <div className="text-center text-sm text-muted-foreground">
+                          총 {drafts.length}개 항목
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
             <TabsContent value="excel" className="space-y-6">

@@ -8,7 +8,8 @@ import {
   insertChatMessageSchema,
   insertProductSchema,
   insertProductWithSpecsSchema,
-  insertCategorySchema
+  insertCategorySchema,
+  insertProductDraftWithSpecsSchema
 } from "@shared/schema";
 import multer from "multer";
 import path from "path";
@@ -132,16 +133,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Excel parsing completed successfully');
       console.log(`Stats: ${result.stats.successfullyParsed} success, ${result.stats.errors} errors`);
       
-      // 응답 크기를 제한하기 위해 drafts는 개수만 전송
+      // Return complete draft objects for saving (not truncated)
       const responseData = {
         ...result,
-        drafts: result.drafts.map(draft => ({
-          nameKo: draft.nameKo || 'N/A',
-          brand: draft.brand || 'N/A', 
-          categoryId: draft.categoryId || 'N/A',
-          monthlyPrice: draft.monthlyPrice || 0,
-          status: draft.status
-        }))
+        drafts: result.drafts // Return full draft objects with all fields including rawSourceMeta
       };
       
       res.json({
@@ -326,6 +321,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Draft Management Routes
+  
+  // Create drafts from parsed Excel data
+  app.post('/api/drafts', async (req, res) => {
+    try {
+      const { drafts } = req.body;
+      
+      if (!Array.isArray(drafts) || drafts.length === 0) {
+        return res.status(400).json({ message: '저장할 Draft 데이터를 제공해주세요.' });
+      }
+
+      // Validate each draft using InsertProductDraftWithSpecs schema
+      const validDrafts = [];
+      for (const draft of drafts) {
+        try {
+          const validatedDraft = insertProductDraftWithSpecsSchema.parse(draft);
+          validDrafts.push(validatedDraft);
+        } catch (error) {
+          console.error('Draft validation failed:', error);
+          return res.status(400).json({ 
+            message: 'Draft 데이터 검증에 실패했습니다.',
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
+      }
+      
+      const savedDrafts = await storage.createDrafts(validDrafts);
+      
+      res.json(savedDrafts);
+    } catch (error) {
+      console.error("Error creating drafts:", error);
+      res.status(500).json({ 
+        message: "Draft 저장에 실패했습니다.",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
   
   // Get all drafts with filtering and pagination
   app.get('/api/drafts', async (req, res) => {
