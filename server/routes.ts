@@ -103,7 +103,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Excel 파일 업로드 및 파싱 엔드포인트
-  app.post('/api/upload/excel-products', excelUpload.single('excel'), async (req, res) => {
+  app.post('/api/upload/excel-products', (req, res, next) => {
+    console.log('=== Excel Upload Route Hit ===');
+    console.log('Request headers:', req.headers);
+    console.log('Content-Type:', req.headers['content-type']);
+    excelUpload.single('excel')(req, res, next);
+  }, async (req, res) => {
     console.log('=== Excel Upload Started ===');
     try {
       if (!req.file) {
