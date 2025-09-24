@@ -6,6 +6,7 @@ import {
   wishlist,
   chatMessages,
   leads,
+  productDrafts,
   type User,
   type UpsertUser,
   type Category,
@@ -20,6 +21,9 @@ import {
   type InsertChatMessage,
   type Lead,
   type InsertLead,
+  type ProductDraft,
+  type InsertProductDraft,
+  type InsertProductDraftWithSpecs,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, like, and, gte, lte, inArray } from "drizzle-orm";
@@ -63,6 +67,15 @@ export interface IStorage {
   // Lead operations
   createLead(lead: InsertLead): Promise<Lead>;
   getLeads(): Promise<Lead[]>;
+
+  // ProductDraft operations for Excel import workflow
+  createDrafts(drafts: InsertProductDraftWithSpecs[]): Promise<ProductDraft[]>;
+  listDrafts(filters?: { status?: string; limit?: number; offset?: number }): Promise<(ProductDraft & { category?: Category })[]>;
+  getDraft(id: string): Promise<(ProductDraft & { category?: Category }) | undefined>;
+  updateDraft(id: string, updates: Partial<InsertProductDraft>): Promise<ProductDraft | undefined>;
+  attachImage(id: string, params: { role: 'main' | 'detail'; url: string }): Promise<ProductDraft | undefined>;
+  approveDraft(id: string): Promise<Product | undefined>;
+  deleteDraft(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -241,6 +254,122 @@ export class DatabaseStorage implements IStorage {
 
   async getLeads(): Promise<Lead[]> {
     return await db.select().from(leads).orderBy(desc(leads.createdAt));
+  }
+
+  // ProductDraft operations for Excel import workflow
+  async createDrafts(drafts: InsertProductDraftWithSpecs[]): Promise<ProductDraft[]> {
+    if (drafts.length === 0) return [];
+    
+    const result = await db.insert(productDrafts).values(drafts).returning();
+    return result;
+  }
+
+  async listDrafts(filters?: { status?: string; limit?: number; offset?: number }): Promise<(ProductDraft & { category?: Category })[]> {
+    const conditions = [];
+    
+    if (filters?.status) {
+      conditions.push(eq(productDrafts.status, filters.status));
+    }
+
+    let query: any = db
+      .select()
+      .from(productDrafts)
+      .leftJoin(categories, eq(productDrafts.categoryId, categories.id))
+      .orderBy(desc(productDrafts.createdAt));
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    if (filters?.limit) {
+      query = query.limit(filters.limit);
+      if (filters?.offset) {
+        query = query.offset(filters.offset);
+      }
+    }
+
+    const rows = await query;
+    return rows.map((row: any) => ({
+      ...row.product_drafts,
+      category: row.categories || undefined
+    }));
+  }
+
+  async getDraft(id: string): Promise<(ProductDraft & { category?: Category }) | undefined> {
+    const [row] = await db
+      .select()
+      .from(productDrafts)
+      .leftJoin(categories, eq(productDrafts.categoryId, categories.id))
+      .where(eq(productDrafts.id, id));
+    
+    if (!row) return undefined;
+    
+    return {
+      ...row.product_drafts,
+      category: row.categories || undefined
+    };
+  }
+
+  async updateDraft(id: string, updates: Partial<InsertProductDraft>): Promise<ProductDraft | undefined> {
+    const [updatedDraft] = await db
+      .update(productDrafts)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(productDrafts.id, id))
+      .returning();
+    return updatedDraft;
+  }
+
+  async attachImage(id: string, params: { role: 'main' | 'detail'; url: string }): Promise<ProductDraft | undefined> {
+    const draft = await this.getDraft(id);
+    if (!draft) return undefined;
+
+    let updates: Partial<InsertProductDraft> = {};
+
+    if (params.role === 'main') {
+      updates.mainImageUrl = params.url;
+    } else {
+      // Add to detail images array
+      const currentDetailUrls = Array.isArray(draft.detailImageUrls) ? draft.detailImageUrls : [];
+      updates.detailImageUrls = [...currentDetailUrls, params.url];
+    }
+
+    return await this.updateDraft(id, updates);
+  }
+
+  async approveDraft(id: string): Promise<Product | undefined> {
+    const draft = await this.getDraft(id);
+    if (!draft || !draft.name || !draft.nameKo || !draft.descriptionKo || !draft.categoryId || !draft.monthlyPrice || !draft.brand) {
+      throw new Error("Draft missing required fields for product creation");
+    }
+
+    // Create product from draft
+    const productData: InsertProduct = {
+      name: draft.name,
+      nameKo: draft.nameKo,
+      descriptionKo: draft.descriptionKo,
+      imageUrl: draft.mainImageUrl || '/placeholder-product.jpg',
+      categoryId: draft.categoryId,
+      monthlyPrice: draft.monthlyPrice,
+      originalPrice: draft.originalPrice,
+      rating: draft.rating || '4.5',
+      brand: draft.brand,
+      specifications: draft.specifications || {},
+    };
+
+    const [newProduct] = await db.insert(products).values(productData).returning();
+    
+    // Mark draft as approved
+    await this.updateDraft(id, { status: 'approved' });
+    
+    return newProduct;
+  }
+
+  async deleteDraft(id: string): Promise<boolean> {
+    const result = await db
+      .delete(productDrafts)
+      .where(eq(productDrafts.id, id))
+      .returning();
+    return result.length > 0;
   }
 }
 
