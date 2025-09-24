@@ -3,8 +3,8 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json({ limit: '50mb' })); // 큰 Excel 데이터 처리를 위해 limit 증가
+app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
 app.use((req, res, next) => {
   const start = Date.now();
