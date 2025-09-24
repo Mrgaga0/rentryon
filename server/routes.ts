@@ -325,6 +325,236 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Draft Management Routes
+  
+  // Get all drafts with filtering and pagination
+  app.get('/api/drafts', async (req, res) => {
+    try {
+      const {
+        status,
+        limit = 20,
+        offset = 0
+      } = req.query;
+
+      const filters = {
+        status: status as string,
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string),
+      };
+
+      const drafts = await storage.listDrafts(filters);
+      res.json(drafts);
+    } catch (error) {
+      console.error("Error fetching drafts:", error);
+      res.status(500).json({ message: "Draft 목록 조회에 실패했습니다." });
+    }
+  });
+
+  // Get specific draft by ID
+  app.get('/api/drafts/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const draft = await storage.getDraft(id);
+      
+      if (!draft) {
+        return res.status(404).json({ message: "Draft를 찾을 수 없습니다." });
+      }
+      
+      res.json(draft);
+    } catch (error) {
+      console.error("Error fetching draft:", error);
+      res.status(500).json({ message: "Draft 조회에 실패했습니다." });
+    }
+  });
+
+  // Update draft
+  app.put('/api/drafts/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+      
+      // TODO: Add Zod validation for updateData using partial InsertProductDraft schema
+      
+      const updatedDraft = await storage.updateDraft(id, updateData);
+      
+      if (!updatedDraft) {
+        return res.status(404).json({ message: "Draft를 찾을 수 없습니다." });
+      }
+      
+      res.json(updatedDraft);
+    } catch (error) {
+      console.error("Error updating draft:", error);
+      res.status(500).json({ message: "Draft 수정에 실패했습니다." });
+    }
+  });
+
+  // Delete draft
+  app.delete('/api/drafts/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteDraft(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Draft를 찾을 수 없습니다." });
+      }
+      
+      res.json({ message: "Draft가 삭제되었습니다." });
+    } catch (error) {
+      console.error("Error deleting draft:", error);
+      res.status(500).json({ message: "Draft 삭제에 실패했습니다." });
+    }
+  });
+
+  // Attach image to draft (main or detail)
+  app.post('/api/drafts/:id/images', upload.single('image'), async (req, res) => {
+    try {
+      const { id: draftId } = req.params;
+      const { role } = req.body; // 'main' or 'detail'
+      const file = req.file;
+      
+      if (!file) {
+        return res.status(400).json({ message: '이미지 파일을 선택해주세요.' });
+      }
+
+      if (!role || !['main', 'detail'].includes(role)) {
+        return res.status(400).json({ message: 'role은 "main" 또는 "detail"이어야 합니다.' });
+      }
+
+      // Check if draft exists
+      const draft = await storage.getDraft(draftId);
+      if (!draft) {
+        return res.status(404).json({ message: "Draft를 찾을 수 없습니다." });
+      }
+
+      // Build correct image URL path
+      const imageUrl = `/uploads/products/${file.filename}`;
+      
+      // Use storage.attachImage() with correct parameters
+      const updatedDraft = await storage.attachImage(draftId, {
+        role: role as 'main' | 'detail',
+        url: imageUrl
+      });
+
+      res.json({
+        message: `${role === 'main' ? '메인' : '상세'} 이미지가 추가되었습니다.`,
+        imageUrl: imageUrl,
+        draft: updatedDraft
+      });
+    } catch (error) {
+      console.error('Error attaching image to draft:', error);
+      res.status(500).json({ message: '이미지 첨부에 실패했습니다.' });
+    }
+  });
+
+  // Remove image from draft (clear main or remove from detail)
+  app.delete('/api/drafts/:id/images', async (req, res) => {
+    try {
+      const { id: draftId } = req.params;
+      const { role, imageUrl } = req.body;
+      
+      if (!role || !['main', 'detail'].includes(role)) {
+        return res.status(400).json({ message: 'role은 "main" 또는 "detail"이어야 합니다.' });
+      }
+
+      const draft = await storage.getDraft(draftId);
+      if (!draft) {
+        return res.status(404).json({ message: "Draft를 찾을 수 없습니다." });
+      }
+
+      let updatedDraft;
+
+      if (role === 'main') {
+        // Clear main image
+        updatedDraft = await storage.updateDraft(draftId, {
+          mainImageUrl: null
+        });
+      } else {
+        // Remove specific image from detail images
+        if (!imageUrl) {
+          return res.status(400).json({ message: 'detail 이미지 삭제시 imageUrl을 지정해주세요.' });
+        }
+        
+        const currentDetailUrls = Array.isArray(draft.detailImageUrls) ? draft.detailImageUrls : [];
+        const updatedDetailUrls = currentDetailUrls.filter((url: string) => url !== imageUrl);
+        
+        updatedDraft = await storage.updateDraft(draftId, {
+          detailImageUrls: updatedDetailUrls
+        });
+      }
+
+      res.json({
+        message: `${role === 'main' ? '메인' : '상세'} 이미지가 삭제되었습니다.`,
+        draft: updatedDraft
+      });
+    } catch (error) {
+      console.error('Error removing image from draft:', error);
+      res.status(500).json({ message: '이미지 삭제에 실패했습니다.' });
+    }
+  });
+
+  // Approve draft (convert to product)
+  app.post('/api/drafts/:id/approve', async (req, res) => {
+    try {
+      const { id: draftId } = req.params;
+      
+      // Use storage.approveDraft() which handles the entire conversion process
+      const product = await storage.approveDraft(draftId);
+      
+      if (!product) {
+        return res.status(404).json({ message: "Draft를 찾을 수 없거나 필수 필드가 누락되었습니다." });
+      }
+
+      res.json({
+        message: 'Draft가 승인되어 제품으로 등록되었습니다.',
+        product: product,
+        draftId: draftId
+      });
+    } catch (error) {
+      console.error('Error approving draft:', error);
+      res.status(500).json({ 
+        message: 'Draft 승인에 실패했습니다.', 
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Bulk approve multiple drafts
+  app.post('/api/drafts/bulk-approve', async (req, res) => {
+    try {
+      const { draftIds } = req.body;
+      
+      if (!Array.isArray(draftIds) || draftIds.length === 0) {
+        return res.status(400).json({ message: '승인할 Draft ID 목록을 제공해주세요.' });
+      }
+
+      const results = [];
+      const errors = [];
+
+      // Process each draft individually using storage.approveDraft()
+      for (const draftId of draftIds) {
+        try {
+          const product = await storage.approveDraft(draftId);
+          if (product) {
+            results.push({ draftId, productId: product.id });
+          } else {
+            errors.push({ draftId, error: 'Draft를 찾을 수 없거나 필수 필드가 누락되었습니다.' });
+          }
+        } catch (error) {
+          errors.push({ draftId, error: error instanceof Error ? error.message : String(error) });
+        }
+      }
+
+      res.json({
+        message: `${results.length}개의 Draft가 승인되었습니다.`,
+        approved: results,
+        errors: errors
+      });
+    } catch (error) {
+      console.error('Error bulk approving drafts:', error);
+      res.status(500).json({ message: '일괄 승인에 실패했습니다.' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
