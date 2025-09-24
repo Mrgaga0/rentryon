@@ -444,11 +444,48 @@ export async function parseProductsFromExcel(
       throw new Error(`Excel 파일에 유효한 데이터가 충분하지 않습니다. 유효한 행 수: ${validRows.length}, 필요: 최소 2행 (헤더 + 데이터). 전체 행: ${jsonData.length}`);
     }
 
-    // 2. 샘플 데이터 준비 (헤더 + 첫 5개 행)
-    const sampleData = jsonData.slice(0, Math.min(6, jsonData.length));
+    // 2. 스마트 헤더 탐지: 제품 관련 키워드가 많은 행을 헤더로 인식
+    let headerRowIndex = 0;
+    let bestHeaderScore = 0;
+    
+    const headerKeywords = ['제품', '브랜드', '가격', '렌탈', '정가', '마케팅', '군', '이름', '명'];
+    
+    for (let i = 0; i < Math.min(3, jsonData.length); i++) {
+      const row = jsonData[i];
+      if (!Array.isArray(row)) continue;
+      
+      // 빈 칸 비율 계산 (헤더는 대부분 채워져 있음)
+      const nonEmptyCount = row.filter(cell => cell && String(cell).trim() !== '').length;
+      const fillRate = nonEmptyCount / Math.max(row.length, 1);
+      
+      // 키워드 매칭 점수 계산
+      let keywordScore = 0;
+      row.forEach(cell => {
+        if (cell && typeof cell === 'string') {
+          const cellStr = cell.toLowerCase();
+          headerKeywords.forEach(keyword => {
+            if (cellStr.includes(keyword)) keywordScore += 1;
+          });
+        }
+      });
+      
+      // 전체 점수 = 채움율 * 10 + 키워드 점수 * 5
+      const totalScore = (fillRate * 10) + (keywordScore * 5);
+      
+      console.log(`Row ${i} header analysis: fillRate=${fillRate.toFixed(2)}, keywordScore=${keywordScore}, totalScore=${totalScore.toFixed(2)}`, row.slice(0, 5));
+      
+      if (totalScore > bestHeaderScore) {
+        bestHeaderScore = totalScore;
+        headerRowIndex = i;
+      }
+    }
+    
+    console.log(`Best header found at row ${headerRowIndex} with score ${bestHeaderScore}`);
+    
+    const headers = jsonData[headerRowIndex];
+    const sampleData = jsonData.slice(Math.max(0, headerRowIndex - 1), Math.min(headerRowIndex + 5, jsonData.length));
     
     // 3. Gemini AI를 사용해서 컬럼 매핑 (fallback 포함)
-    const headers = jsonData[0];
     let finalMapping: any;
     let confidence = 0;
     let mappingSource: 'ai' | 'fallback' = 'fallback';
@@ -490,7 +527,7 @@ export async function parseProductsFromExcel(
     const results: ExcelParseResult = {
       drafts: [],
       stats: {
-        totalRows: jsonData.length - 1, // 헤더 제외
+        totalRows: jsonData.length - headerRowIndex - 1, // 헤더 인덱스 이후의 데이터만
         successfullyParsed: 0,
         errors: 0,
       },
@@ -505,7 +542,7 @@ export async function parseProductsFromExcel(
     };
 
     
-    for (let i = 1; i < jsonData.length; i++) {
+    for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
       try {
         const row = jsonData[i];
         if (!row || row.every((cell: any) => !cell)) continue; // 빈 행 스킵
@@ -666,10 +703,12 @@ ${JSON.stringify(sampleData, null, 2)}
       const result = JSON.parse(rawJson);
       return {
         success: true,
-        mapping: { columnMappings: result.columnMappings },
-        confidence: result.confidence || 0,
-        categoryGuess: result.categoryGuess,
-        brandGuess: result.brandGuess
+        mapping: { 
+          columnMappings: result.columnMappings,
+          categoryGuess: result.categoryGuess,
+          brandGuess: result.brandGuess
+        },
+        confidence: result.confidence || 0
       };
     } else {
       return {
