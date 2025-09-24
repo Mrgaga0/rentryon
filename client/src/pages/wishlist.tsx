@@ -21,9 +21,7 @@ export default function WishlistPage() {
   });
 
   const removeFromWishlistMutation = useMutation({
-    mutationFn: (productId: string) => apiRequest(`/api/wishlist/${productId}`, {
-      method: 'DELETE',
-    }),
+    mutationFn: (productId: string) => apiRequest('DELETE', `/api/wishlist/${productId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/wishlist"] });
       toast({
@@ -93,7 +91,7 @@ export default function WishlistPage() {
               </Card>
             ))}
           </div>
-        ) : !wishlist || wishlist.length === 0 ? (
+        ) : !wishlist || (wishlist as any[])?.length === 0 ? (
           <div className="text-center py-12">
             <Card className="max-w-md mx-auto">
               <CardContent className="pt-6">
@@ -116,11 +114,10 @@ export default function WishlistPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {wishlist.map((item: Wishlist & { product: any }) => (
+            {(wishlist as any[])?.map((item: Wishlist & { product: any }) => (
               <div key={item.id} className="relative group">
                 <ProductCard 
                   product={item.product}
-                  showWishlistButton={false}
                 />
                 <Button
                   variant="destructive"
