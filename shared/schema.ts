@@ -49,7 +49,6 @@ export const products = pgTable("products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name", { length: 200 }).notNull(),
   nameKo: varchar("name_ko", { length: 200 }).notNull(),
-  description: text("description").notNull(),
   descriptionKo: text("description_ko").notNull(),
   imageUrl: varchar("image_url", { length: 500 }).notNull(),
   categoryId: varchar("category_id").notNull().references(() => categories.id),

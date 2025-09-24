@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { getProductRecommendations, processChatMessage } from "./gemini";
@@ -8,8 +9,62 @@ import {
   insertProductSchema,
   insertCategorySchema
 } from "@shared/schema";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+// 파일 업로드 설정
+const uploadStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = 'uploads/products';
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'product-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage: uploadStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB 제한
+  },
+  fileFilter: (req, file, cb) => {
+    // 이미지 파일만 허용
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('이미지 파일만 업로드 가능합니다.'));
+    }
+  }
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
+
+  // 정적 파일 서빙 설정
+  app.use('/uploads', express.static('uploads'));
+
+  // 파일 업로드 엔드포인트
+  app.post('/api/upload/product-image', upload.single('image'), (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: '이미지 파일을 선택해주세요.' });
+      }
+      
+      const imageUrl = `/uploads/products/${req.file.filename}`;
+      res.json({ 
+        message: '이미지가 성공적으로 업로드되었습니다.',
+        imageUrl 
+      });
+    } catch (error) {
+      console.error('Image upload error:', error);
+      res.status(500).json({ message: '이미지 업로드에 실패했습니다.' });
+    }
+  });
 
   // Category routes
   app.get('/api/categories', async (req, res) => {

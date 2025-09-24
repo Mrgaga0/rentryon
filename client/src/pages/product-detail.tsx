@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRoute } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Star, Shield, Truck, ArrowLeft, MessageSquare, Phone, X } from "lucide-react";
@@ -34,6 +35,8 @@ export default function ProductDetail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showConsultationForm, setShowConsultationForm] = useState(false);
+  const [selectedRentalOption, setSelectedRentalOption] = useState<any>(null);
+  const [selectedMaintenanceOption, setSelectedMaintenanceOption] = useState<any>(null);
 
   const { data: product, isLoading } = useQuery({
     queryKey: ["/api/products", params?.id],
@@ -45,7 +48,7 @@ export default function ProductDetail() {
     defaultValues: {
       productId: params?.id || "",
       productName: "", // Will be set when product loads
-      rentalPeriodMonths: 3, // Default rental period
+      rentalPeriodMonths: selectedRentalOption?.months || 3, // Use selected rental option
       name: "",
       phone: "",
       preferredTime: "",
@@ -128,6 +131,35 @@ export default function ProductDetail() {
 
   const monthlyPrice = parseFloat((product as any).monthlyPrice);
 
+  // 제품 옵션 가져오기
+  const specifications = (product as any).specifications || {};
+  const rentalOptions = specifications.rentalOptions?.minimumPeriod || [];
+  const maintenanceOptions = specifications.rentalOptions?.maintenanceCycle || [];
+
+  // 가격 계산
+  const calculateTotalPrice = () => {
+    let basePrice = selectedRentalOption ? selectedRentalOption.monthlyPrice : monthlyPrice;
+    let additionalFee = selectedMaintenanceOption ? selectedMaintenanceOption.additionalFee : 0;
+    return basePrice + additionalFee;
+  };
+
+  // 기본 옵션 설정 (첫 번째 옵션으로)
+  useEffect(() => {
+    if (rentalOptions.length > 0 && !selectedRentalOption) {
+      setSelectedRentalOption(rentalOptions[0]);
+    }
+    if (maintenanceOptions.length > 0 && !selectedMaintenanceOption) {
+      setSelectedMaintenanceOption(maintenanceOptions[0]);
+    }
+  }, [rentalOptions, maintenanceOptions, selectedRentalOption, selectedMaintenanceOption]);
+
+  // 선택된 옵션과 상담 폼 동기화
+  useEffect(() => {
+    if (selectedRentalOption) {
+      form.setValue("rentalPeriodMonths", selectedRentalOption.months);
+    }
+  }, [selectedRentalOption, form]);
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -181,7 +213,7 @@ export default function ProductDetail() {
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-2xl font-bold text-foreground" data-testid="text-monthly-price">
-                        월 {monthlyPrice.toLocaleString()}원
+                        월 {calculateTotalPrice().toLocaleString()}원
                       </span>
                       {(product as any).originalPrice && (
                         <span className="text-sm text-muted-foreground line-through">
@@ -190,9 +222,70 @@ export default function ProductDetail() {
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      렌탈 요금은 기간과 조건에 따라 달라질 수 있습니다
+                      선택한 옵션에 따라 렌탈료가 변동됩니다
                     </p>
                   </div>
+
+                  {/* 의무사용기간 선택 */}
+                  {rentalOptions.length > 0 && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-foreground">
+                        의무사용기간
+                      </label>
+                      <Select
+                        value={selectedRentalOption?.months?.toString() || ""}
+                        onValueChange={(value) => {
+                          const option = rentalOptions.find(opt => opt.months.toString() === value);
+                          setSelectedRentalOption(option);
+                        }}
+                      >
+                        <SelectTrigger data-testid="select-rental-period">
+                          <SelectValue placeholder="기간을 선택하세요" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {rentalOptions.map((option) => (
+                            <SelectItem 
+                              key={option.months} 
+                              value={option.months.toString()}
+                            >
+                              {option.months}개월 - 월 {option.monthlyPrice.toLocaleString()}원
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* 관리주기 선택 */}
+                  {maintenanceOptions.length > 0 && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-foreground">
+                        관리주기
+                      </label>
+                      <Select
+                        value={selectedMaintenanceOption?.months?.toString() || ""}
+                        onValueChange={(value) => {
+                          const option = maintenanceOptions.find(opt => opt.months.toString() === value);
+                          setSelectedMaintenanceOption(option);
+                        }}
+                      >
+                        <SelectTrigger data-testid="select-maintenance-cycle">
+                          <SelectValue placeholder="관리주기를 선택하세요" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {maintenanceOptions.map((option) => (
+                            <SelectItem 
+                              key={option.months} 
+                              value={option.months.toString()}
+                            >
+                              {option.description} 
+                              {option.additionalFee > 0 && ` (+${option.additionalFee.toLocaleString()}원)`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
                   <Separator />
 
@@ -321,7 +414,7 @@ export default function ProductDetail() {
                             <select 
                               {...field} 
                               className="w-full px-3 py-2 border border-input rounded-md bg-background"
-                              data-testid="select-rental-period"
+                              data-testid="consultation-select-rental-period"
                               onChange={(e) => field.onChange(parseInt(e.target.value))}
                               value={field.value}
                             >
@@ -414,12 +507,18 @@ export default function ProductDetail() {
             <CardContent className="p-6">
               <h3 className="text-lg font-semibold mb-4">제품 사양</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Object.entries((product as any).specifications as Record<string, string>).map(([key, value]) => (
-                  <div key={key} className="flex justify-between py-2 border-b border-border">
-                    <span className="font-medium">{key}</span>
-                    <span className="text-muted-foreground">{value}</span>
-                  </div>
-                ))}
+                {Object.entries((product as any).specifications as Record<string, any>).map(([key, value]) => {
+                  // nested objects(rentalOptions) 제외하고 기본 사양만 표시
+                  if (key === 'rentalOptions' || typeof value === 'object') {
+                    return null;
+                  }
+                  return (
+                    <div key={key} className="flex justify-between py-2 border-b border-border">
+                      <span className="font-medium">{key}</span>
+                      <span className="text-muted-foreground">{String(value)}</span>
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>

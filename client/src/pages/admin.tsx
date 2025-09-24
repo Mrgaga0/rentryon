@@ -24,15 +24,17 @@ const productFormSchema = z.object({
   name: z.string().min(1, "제품명(영어)을 입력해주세요"),
   brand: z.string().min(1, "브랜드를 입력해주세요"),
   categoryId: z.string().min(1, "카테고리를 선택해주세요"),
-  descriptionKo: z.string().min(10, "제품 설명(한국어)을 10자 이상 입력해주세요"),
-  description: z.string().min(10, "제품 설명(영어)을 10자 이상 입력해주세요"),
-  monthlyPrice: z.string().min(1, "월 렌탈료를 입력해주세요"),
+  descriptionKo: z.string().min(10, "제품 설명을 10자 이상 입력해주세요"),
+  monthlyPrice: z.string().min(1, "기본 월 렌탈료를 입력해주세요"),
   originalPrice: z.string().optional(),
-  imageUrl: z.string().url("올바른 이미지 URL을 입력해주세요"),
+  imageUrl: z.string().min(1, "제품 이미지를 업로드해주세요"),
   modelNumber: z.string().min(1, "모델명을 입력해주세요"),
   releaseYear: z.string().min(4, "출시년도를 입력해주세요"),
   dimensions: z.string().min(1, "제품 크기를 입력해주세요"),
   features: z.string().min(1, "주요 기능을 입력해주세요"),
+  // 의무사용기간 옵션들
+  rentalOptions: z.string().min(1, "의무사용기간 옵션을 설정해주세요"),
+  maintenanceOptions: z.string().min(1, "관리주기 옵션을 설정해주세요"),
 });
 
 type ProductFormData = z.infer<typeof productFormSchema>;
@@ -40,6 +42,8 @@ type ProductFormData = z.infer<typeof productFormSchema>;
 export default function AdminPage() {
   const [, navigate] = useLocation();
   const [showProductForm, setShowProductForm] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
   const { toast } = useToast();
 
   const handleLogout = () => {
@@ -60,7 +64,6 @@ export default function AdminPage() {
       brand: "",
       categoryId: "",
       descriptionKo: "",
-      description: "",
       monthlyPrice: "",
       originalPrice: "",
       imageUrl: "",
@@ -68,18 +71,52 @@ export default function AdminPage() {
       releaseYear: new Date().getFullYear().toString(),
       dimensions: "",
       features: "",
+      rentalOptions: "",
+      maintenanceOptions: "",
     },
   });
+
+  // 이미지 업로드 함수
+  const uploadImage = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    setUploadingImage(true);
+    try {
+      const response = await fetch('/api/upload/product-image', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('이미지 업로드에 실패했습니다.');
+      }
+
+      const data = await response.json();
+      return data.imageUrl;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   // 제품 생성 뮤테이션
   const createProductMutation = useMutation({
     mutationFn: async (data: ProductFormData) => {
+      // 옵션 파싱
+      const rentalOptions = data.rentalOptions ? JSON.parse(data.rentalOptions) : [];
+      const maintenanceOptions = data.maintenanceOptions ? JSON.parse(data.maintenanceOptions) : [];
+
       // specifications JSON 구성
       const specifications = {
         modelNumber: data.modelNumber,
         releaseYear: parseInt(data.releaseYear),
         dimensions: data.dimensions,
         features: data.features.split(',').map(f => f.trim()).filter(f => f),
+        rentalOptions: {
+          minimumPeriod: rentalOptions,
+          maintenanceCycle: maintenanceOptions,
+        },
       };
 
       const productData = {
@@ -88,7 +125,6 @@ export default function AdminPage() {
         brand: data.brand,
         categoryId: data.categoryId,
         descriptionKo: data.descriptionKo,
-        description: data.description,
         monthlyPrice: data.monthlyPrice,
         originalPrice: data.originalPrice || null,
         imageUrl: data.imageUrl,
@@ -473,15 +509,112 @@ export default function AdminPage() {
                             )}
                           />
 
-                          {/* 제품 이미지 URL */}
+                          {/* 제품 이미지 업로드 */}
                           <FormField
                             control={form.control}
                             name="imageUrl"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>제품 이미지 URL *</FormLabel>
+                                <FormLabel>제품 이미지 *</FormLabel>
                                 <FormControl>
-                                  <Input placeholder="https://example.com/product-image.jpg" {...field} data-testid="input-image-url" />
+                                  <div className="space-y-4">
+                                    {field.value ? (
+                                      <div className="relative">
+                                        <img 
+                                          src={field.value} 
+                                          alt="업로드된 제품 이미지" 
+                                          className="w-32 h-32 object-cover rounded-lg border"
+                                        />
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => field.onChange("")}
+                                          className="mt-2"
+                                          data-testid="button-remove-image"
+                                        >
+                                          이미지 제거
+                                        </Button>
+                                      </div>
+                                    ) : (
+                                      <div
+                                        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                                          dragActive ? "border-primary bg-primary/10" : "border-muted-foreground/25"
+                                        }`}
+                                        onDragEnter={(e) => {
+                                          e.preventDefault();
+                                          setDragActive(true);
+                                        }}
+                                        onDragLeave={(e) => {
+                                          e.preventDefault();
+                                          setDragActive(false);
+                                        }}
+                                        onDragOver={(e) => e.preventDefault()}
+                                        onDrop={async (e) => {
+                                          e.preventDefault();
+                                          setDragActive(false);
+                                          const file = e.dataTransfer.files[0];
+                                          if (file && file.type.startsWith('image/')) {
+                                            try {
+                                              const imageUrl = await uploadImage(file);
+                                              field.onChange(imageUrl);
+                                              toast({
+                                                title: "이미지 업로드 성공",
+                                                description: "제품 이미지가 업로드되었습니다.",
+                                              });
+                                            } catch (error) {
+                                              toast({
+                                                title: "이미지 업로드 실패",
+                                                description: "이미지 업로드 중 오류가 발생했습니다.",
+                                                variant: "destructive",
+                                              });
+                                            }
+                                          }
+                                        }}
+                                      >
+                                        <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                                        <p className="text-sm text-muted-foreground mb-2">
+                                          이미지를 드래그하여 놓거나 클릭하여 업로드
+                                        </p>
+                                        <Input
+                                          type="file"
+                                          accept="image/*"
+                                          className="hidden"
+                                          onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                              try {
+                                                const imageUrl = await uploadImage(file);
+                                                field.onChange(imageUrl);
+                                                toast({
+                                                  title: "이미지 업로드 성공",
+                                                  description: "제품 이미지가 업로드되었습니다.",
+                                                });
+                                              } catch (error) {
+                                                toast({
+                                                  title: "이미지 업로드 실패",
+                                                  description: "이미지 업로드 중 오류가 발생했습니다.",
+                                                  variant: "destructive",
+                                                });
+                                              }
+                                            }
+                                          }}
+                                          data-testid="input-image-file"
+                                        />
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          disabled={uploadingImage}
+                                          onClick={() => {
+                                            document.querySelector<HTMLInputElement>('[data-testid="input-image-file"]')?.click();
+                                          }}
+                                          data-testid="button-upload-image"
+                                        >
+                                          {uploadingImage ? "업로드 중..." : "파일 선택"}
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </div>
                                 </FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -503,13 +636,13 @@ export default function AdminPage() {
                             )}
                           />
 
-                          {/* 제품 설명 (한국어) */}
+                          {/* 제품 설명 */}
                           <FormField
                             control={form.control}
                             name="descriptionKo"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>제품 설명 (한국어) *</FormLabel>
+                                <FormLabel>제품 설명 *</FormLabel>
                                 <FormControl>
                                   <Textarea 
                                     placeholder="온차 수준 직수 사용도는 고객센터를 통해 문의해주세요."
@@ -523,25 +656,55 @@ export default function AdminPage() {
                             )}
                           />
 
-                          {/* 제품 설명 (영어) */}
-                          <FormField
-                            control={form.control}
-                            name="description"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>제품 설명 (영어) *</FormLabel>
-                                <FormControl>
-                                  <Textarea 
-                                    placeholder="High-efficiency water purifier with hot and cold water functions."
-                                    rows={4}
-                                    {...field}
-                                    data-testid="textarea-description-en"
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+                          {/* 의무사용기간 옵션 */}
+                          <div className="col-span-1 md:col-span-2">
+                            <FormField
+                              control={form.control}
+                              name="rentalOptions"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>의무사용기간 옵션 *</FormLabel>
+                                  <FormControl>
+                                    <Textarea
+                                      placeholder='[{"months": 12, "monthlyPrice": 15000}, {"months": 24, "monthlyPrice": 14200}, {"months": 36, "monthlyPrice": 13500}]'
+                                      rows={3}
+                                      {...field}
+                                      data-testid="textarea-rental-options"
+                                    />
+                                  </FormControl>
+                                  <p className="text-xs text-muted-foreground">
+                                    JSON 형식으로 입력하세요. 예: months(개월), monthlyPrice(월 렌탈료)
+                                  </p>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+
+                          {/* 관리주기 옵션 */}
+                          <div className="col-span-1 md:col-span-2">
+                            <FormField
+                              control={form.control}
+                              name="maintenanceOptions"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>관리주기 옵션 *</FormLabel>
+                                  <FormControl>
+                                    <Textarea
+                                      placeholder='[{"months": 1, "additionalFee": 0, "description": "매월 관리"}, {"months": 3, "additionalFee": 5000, "description": "3개월마다 관리"}]'
+                                      rows={3}
+                                      {...field}
+                                      data-testid="textarea-maintenance-options"
+                                    />
+                                  </FormControl>
+                                  <p className="text-xs text-muted-foreground">
+                                    JSON 형식으로 입력하세요. 예: months(주기), additionalFee(추가 비용), description(설명)
+                                  </p>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
 
                           <div className="flex justify-end space-x-2 pt-4">
                             <Button
