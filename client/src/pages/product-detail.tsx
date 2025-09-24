@@ -59,7 +59,6 @@ export default function ProductDetail() {
         productId: params?.id || null,
         productName: (product as any)?.nameKo || data.productName,
       };
-      console.log("Submitting consultation data:", submissionData);
       return await apiRequest("POST", "/api/leads", submissionData);
     },
     onSuccess: () => {
@@ -72,7 +71,6 @@ export default function ProductDetail() {
       queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
     },
     onError: (error) => {
-      console.error("Consultation submission error:", error);
       toast({
         title: "오류 발생",
         description: "상담 신청에 실패했습니다. 다시 시도해주세요.",

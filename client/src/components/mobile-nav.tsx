@@ -25,20 +25,20 @@ export default function MobileNav() {
           const active = isActive(item.path);
           
           return (
-            <Link key={item.path} href={item.path}>
-              <a
-                className={`flex flex-col items-center py-2 px-3 transition-colors ${
-                  active
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                data-testid={item.testId}
-              >
-                <Icon className={`text-lg mb-1 h-5 w-5 ${active ? "text-primary" : ""}`} />
-                <span className={`text-xs ${active ? "text-primary font-medium" : ""}`}>
-                  {item.label}
-                </span>
-              </a>
+            <Link 
+              key={item.path} 
+              href={item.path}
+              className={`flex flex-col items-center py-2 px-3 transition-colors ${
+                active
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              data-testid={item.testId}
+            >
+              <Icon className={`text-lg mb-1 h-5 w-5 ${active ? "text-primary" : ""}`} />
+              <span className={`text-xs ${active ? "text-primary font-medium" : ""}`}>
+                {item.label}
+              </span>
             </Link>
           );
         })}

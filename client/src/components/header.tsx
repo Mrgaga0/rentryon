@@ -18,14 +18,14 @@ export default function Header() {
           
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-6">
-            <Link href="/home">
-              <a className="text-muted-foreground hover:text-foreground transition-colors" data-testid="nav-home">홈</a>
+            <Link href="/home" className="text-muted-foreground hover:text-foreground transition-colors" data-testid="nav-home">
+              홈
             </Link>
-            <Link href="/products">
-              <a className="text-muted-foreground hover:text-foreground transition-colors" data-testid="nav-products">제품</a>
+            <Link href="/products" className="text-muted-foreground hover:text-foreground transition-colors" data-testid="nav-products">
+              제품
             </Link>
-            <Link href="/chat">
-              <a className="text-muted-foreground hover:text-foreground transition-colors" data-testid="nav-chat">AI 상담</a>
+            <Link href="/chat" className="text-muted-foreground hover:text-foreground transition-colors" data-testid="nav-chat">
+              AI 상담
             </Link>
           </nav>
           
