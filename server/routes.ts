@@ -44,21 +44,37 @@ const upload = multer({
   }
 });
 
-// Excel 파일 업로드를 위한 별도 설정
+// Excel 파일 업로드를 위한 별도 설정 (메모리 저장소 사용)
 const excelUpload = multer({
+  storage: multer.memoryStorage(), // 메모리에 저장하여 buffer로 접근
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB 제한
   },
   fileFilter: (req, file, cb) => {
+    console.log('Multer file filter:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size
+    });
+    
     // Excel 파일만 허용
     const allowedMimes = [
       'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/excel',
+      'application/x-excel',
+      'application/x-msexcel'
     ];
-    if (allowedMimes.includes(file.mimetype) || file.originalname.match(/\.(xlsx|xls)$/)) {
+    
+    const isValidMime = allowedMimes.includes(file.mimetype);
+    const isValidExtension = file.originalname.match(/\.(xlsx|xls)$/i);
+    
+    if (isValidMime || isValidExtension) {
+      console.log('File accepted by multer');
       cb(null, true);
     } else {
-      cb(new Error('Excel 파일만 업로드 가능합니다. (.xlsx, .xls)'));
+      console.log('File rejected by multer');
+      cb(new Error(`지원되지 않는 파일 형식입니다. Excel 파일(.xlsx, .xls)만 업로드 가능합니다. (받은 타입: ${file.mimetype})`));
     }
   }
 });
