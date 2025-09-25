@@ -1,6 +1,7 @@
 import { sql, relations } from 'drizzle-orm';
 import {
   index,
+  uniqueIndex,
   jsonb,
   pgTable,
   timestamp,
@@ -54,13 +55,21 @@ export const products = pgTable("products", {
   categoryId: varchar("category_id").notNull().references(() => categories.id),
   monthlyPrice: decimal("monthly_price", { precision: 10, scale: 2 }).notNull(),
   originalPrice: decimal("original_price", { precision: 10, scale: 2 }),
+  // 중복 감지 및 월간 업데이트를 위한 새 필드들
+  modelNumber: varchar("model_number", { length: 100 }), // 중복 상품 식별 키
+  promotionalPrice: decimal("promotional_price", { precision: 10, scale: 2 }), // 월간 프로모션 가격
+  promotionStartDate: timestamp("promotion_start_date"), // 프로모션 시작일
+  promotionEndDate: timestamp("promotion_end_date"), // 프로모션 종료일
   rating: decimal("rating", { precision: 3, scale: 2 }).notNull().default('4.5'),
   brand: varchar("brand", { length: 100 }).notNull(),
   specifications: jsonb("specifications").notNull(),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  // 중복 감지를 위한 복합 고유 인덱스 (NULL modelNumber는 제외하여 허점 방지)
+  uniqueBrandModel: uniqueIndex("uq_products_brand_model").on(table.brand, table.modelNumber).where(sql`model_number IS NOT NULL`),
+}));
 
 // Rentals table
 export const rentals = pgTable("rentals", {
@@ -119,6 +128,11 @@ export const productDrafts = pgTable("product_drafts", {
   categoryId: varchar("category_id").references(() => categories.id),
   monthlyPrice: decimal("monthly_price", { precision: 10, scale: 2 }),
   originalPrice: decimal("original_price", { precision: 10, scale: 2 }),
+  // 중복 감지 및 월간 업데이트를 위한 새 필드들
+  modelNumber: varchar("model_number", { length: 100 }), // 중복 상품 식별 키
+  promotionalPrice: decimal("promotional_price", { precision: 10, scale: 2 }), // 월간 프로모션 가격
+  promotionStartDate: timestamp("promotion_start_date"), // 프로모션 시작일
+  promotionEndDate: timestamp("promotion_end_date"), // 프로모션 종료일
   rating: decimal("rating", { precision: 3, scale: 2 }),
   brand: varchar("brand", { length: 100 }),
   specifications: jsonb("specifications"),
@@ -308,6 +322,15 @@ export const insertProductDraftWithSpecsSchema = insertProductDraftSchema
         return Math.min(Math.max(val, 0), 5).toString();
       }).optional(),
     monthlyPrice: z.union([z.number(), z.string()])
+      .transform((val) => {
+        if (typeof val === 'string') {
+          const num = parseFloat(val.replace(/[^0-9.]/g, ''));
+          return isNaN(num) || num <= 0 ? undefined : num.toString();
+        }
+        return val <= 0 ? undefined : val.toString();
+      }).optional(),
+    // 프로모션 가격 처리 (monthlyPrice와 동일한 패턴)
+    promotionalPrice: z.union([z.number(), z.string()])
       .transform((val) => {
         if (typeof val === 'string') {
           const num = parseFloat(val.replace(/[^0-9.]/g, ''));
