@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Settings, Users, Package, BarChart3, MessageCircle, LogOut, Plus, Upload, Eye, Edit, Trash2, Check, X, Image, FileText } from "lucide-react";
+import { Settings, Users, Package, BarChart3, MessageCircle, LogOut, Plus, Upload, Eye, Edit, Trash2, Check, X, Image, FileText, Save, RotateCcw } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { motion } from "framer-motion";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
@@ -16,7 +17,7 @@ import { z } from "zod";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 // 구조화된 제품 업로드 폼 스키마 (레퍼런스 앱 패턴 적용)
 const productFormSchema = z.object({
@@ -61,6 +62,21 @@ const productFormSchema = z.object({
 });
 
 type ProductFormData = z.infer<typeof productFormSchema>;
+
+// Draft 편집 폼 스키마 
+const editDraftSchema = z.object({
+  nameKo: z.string().min(1, "제품명(한국어)을 입력해주세요"),
+  name: z.string().optional(),
+  brand: z.string().min(1, "브랜드를 입력해주세요"),
+  categoryId: z.string().optional(), // categoryId를 optional로 변경
+  descriptionKo: z.string().optional(),
+  monthlyPrice: z.number().min(0, "월 렌탈료를 입력해주세요"),
+  originalPrice: z.number().optional(),
+  imageUrl: z.string().optional(),
+  rating: z.number().min(0).max(5).optional(),
+});
+
+type EditDraftFormData = z.infer<typeof editDraftSchema>;
 
 export default function AdminPage() {
   const [, navigate] = useLocation();
@@ -242,6 +258,44 @@ export default function AdminPage() {
     },
   });
 
+  // Draft 편집 뮤테이션
+  const editDraftMutation = useMutation({
+    mutationFn: async ({ draftId, data }: { draftId: string, data: EditDraftFormData }) => {
+      console.log('Editing draft:', draftId, data); // Debug log
+      const response = await fetch(`/api/drafts/${draftId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Edit failed:', errorData); // Debug log
+        throw new Error(errorData.message || 'Draft 편집에 실패했습니다.');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Draft 편집 완료",
+        description: "제품 초안이 성공적으로 수정되었습니다.",
+      });
+      refetchDrafts();
+      setEditingDraft(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "편집 실패",
+        description: error.message || "Draft 편집 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // 제품 업로드 폼
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productFormSchema),
@@ -271,6 +325,56 @@ export default function AdminPage() {
       installLeadTime: "",
     },
   });
+
+  // Draft 편집 폼
+  const editForm = useForm<EditDraftFormData>({
+    resolver: zodResolver(editDraftSchema),
+    defaultValues: {
+      nameKo: "",
+      name: "",
+      brand: "",
+      categoryId: "",
+      descriptionKo: "",
+      monthlyPrice: 0,
+      originalPrice: 0,
+      imageUrl: "",
+      rating: 4.5,
+    },
+  });
+
+  // 편집할 draft가 변경될 때 폼 값 설정
+  useEffect(() => {
+    if (editingDraft) {
+      console.log('EditingDraft:', editingDraft);
+      console.log('EditingDraft rating:', editingDraft.rating, 'type:', typeof editingDraft.rating);
+      
+      const ratingValue = editingDraft.rating ? Number(editingDraft.rating) : 4.5;
+      console.log('Setting rating to:', ratingValue, 'type:', typeof ratingValue);
+      
+      editForm.reset({
+        nameKo: editingDraft.nameKo || "",
+        name: editingDraft.name || "",
+        brand: editingDraft.brand || "",
+        categoryId: editingDraft.categoryId || "",
+        descriptionKo: editingDraft.descriptionKo || "",
+        monthlyPrice: editingDraft.monthlyPrice || 0,
+        originalPrice: editingDraft.originalPrice || 0,
+        imageUrl: editingDraft.imageUrl || "",
+        rating: ratingValue,
+      });
+    }
+  }, [editingDraft, editForm]);
+
+  const onEditSubmit = (data: EditDraftFormData) => {
+    console.log('Form submit triggered!', data); // Debug log
+    console.log('Form errors:', editForm.formState.errors); // Debug validation errors
+    if (editingDraft) {
+      console.log('Submitting edit for draft:', editingDraft.id); // Debug log
+      editDraftMutation.mutate({ draftId: editingDraft.id, data });
+    } else {
+      console.error('No editing draft selected'); // Debug log
+    }
+  };
 
   // 이미지 업로드 함수
   const uploadImage = async (file: File): Promise<string> => {
@@ -1538,6 +1642,163 @@ export default function AdminPage() {
           </Tabs>
         </motion.div>
       </div>
+
+      {/* Edit Draft Modal */}
+      <Dialog open={!!editingDraft} onOpenChange={() => setEditingDraft(null)}>
+        <DialogContent className="max-w-md" data-testid="edit-draft-modal">
+          <DialogHeader>
+            <DialogTitle>제품 초안 편집</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+                {/* 제품명 (한국어) */}
+                <FormField
+                  control={editForm.control}
+                  name="nameKo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>제품명 (한국어) *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="예: 아이콘 냉온정 정수기" {...field} data-testid="input-edit-name-ko" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* 브랜드 */}
+                <FormField
+                  control={editForm.control}
+                  name="brand"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>브랜드 *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="예: 코웨이" {...field} data-testid="input-edit-brand" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* 카테고리 */}
+                <FormField
+                  control={editForm.control}
+                  name="categoryId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>카테고리</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-edit-category">
+                            <SelectValue placeholder="카테고리 선택" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">카테고리 선택 안함</SelectItem>
+                          {categories.map((category) => (
+                            <SelectItem key={category.id} value={category.id}>
+                              {category.nameKo}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* 월 렌탈료 */}
+                <FormField
+                  control={editForm.control}
+                  name="monthlyPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>월 렌탈료 *</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="15000" 
+                          value={field.value || 0}
+                          onChange={(e) => {
+                            const value = e.target.value ? Number(e.target.value) : 0;
+                            console.log('Monthly price changed:', value); // Debug log
+                            field.onChange(value);
+                          }}
+                          data-testid="input-edit-monthly-price"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* 정상가 */}
+                <FormField
+                  control={editForm.control}
+                  name="originalPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>정상가</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="50000" 
+                          value={field.value || 0}
+                          onChange={(e) => {
+                            const value = e.target.value ? Number(e.target.value) : 0;
+                            field.onChange(value);
+                          }}
+                          data-testid="input-edit-original-price"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setEditingDraft(null)}
+                    data-testid="button-cancel-edit"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    취소
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={editDraftMutation.isPending}
+                    onClick={(e) => {
+                      console.log('Save button clicked!');
+                      console.log('Form is valid:', editForm.formState.isValid);
+                      console.log('Form values:', editForm.getValues());
+                      if (!editForm.formState.isValid) {
+                        console.log('Form validation errors:', editForm.formState.errors);
+                      }
+                    }}
+                    data-testid="button-save-edit"
+                  >
+                    {editDraftMutation.isPending ? (
+                      <>
+                        <RotateCcw className="h-4 w-4 mr-2 animate-spin" />
+                        저장 중...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        저장
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
