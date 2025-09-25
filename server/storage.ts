@@ -26,7 +26,7 @@ import {
   type InsertProductDraftWithSpecs,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, like, and, gte, lte, inArray } from "drizzle-orm";
+import { eq, desc, like, and, gte, lte, inArray, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -381,6 +381,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // 월간 병합 파이프라인 구현
+  // 데이터 정규화 함수: trim + lowercase 처리로 중복 감지 정확도 향상
+  private normalizeForDuplicateCheck(value: string): string {
+    return value.trim().toLowerCase();
+  }
+
   async mergeProducts(drafts: InsertProductDraftWithSpecs[]): Promise<{
     updated: Product[];
     created: Product[];
@@ -396,8 +401,9 @@ export class DatabaseStorage implements IStorage {
 
     for (const draft of drafts) {
       try {
-        // 1. modelNumber가 없으면 manual review로 분기
-        if (!draft.modelNumber || draft.modelNumber.trim() === '') {
+        // 1. modelNumber 또는 brand가 없으면 manual review로 분기
+        if (!draft.modelNumber || draft.modelNumber.trim() === '' || 
+            !draft.brand || draft.brand.trim() === '') {
           const reviewDraft = await db.insert(productDrafts).values({
             ...draft,
             status: 'needs_review'
@@ -406,13 +412,16 @@ export class DatabaseStorage implements IStorage {
           continue;
         }
 
-        // 2. 중복 감지: brand + modelNumber로 기존 제품 찾기
+        // 2. 정규화된 중복 감지: brand + modelNumber 대소문자/공백 무관 비교
+        const normalizedBrand = this.normalizeForDuplicateCheck(draft.brand!);
+        const normalizedModelNumber = this.normalizeForDuplicateCheck(draft.modelNumber!);
+        
         const existingProduct = await db
           .select()
           .from(products)
           .where(and(
-            eq(products.brand, draft.brand!),
-            eq(products.modelNumber, draft.modelNumber!)
+            sql`LOWER(TRIM(${products.brand})) = ${normalizedBrand}`,
+            sql`LOWER(TRIM(${products.modelNumber})) = ${normalizedModelNumber}`
           ))
           .limit(1);
 
@@ -452,8 +461,9 @@ export class DatabaseStorage implements IStorage {
             monthlyPrice: draft.monthlyPrice,
             originalPrice: draft.originalPrice,
             rating: draft.rating || '4.5',
-            brand: draft.brand,
-            modelNumber: draft.modelNumber,
+            // 저장시 정규화: trim 처리 (DB unique constraint에서 정확한 매칭 보장)
+            brand: draft.brand.trim(),
+            modelNumber: draft.modelNumber.trim(),
             promotionalPrice: draft.promotionalPrice,
             promotionStartDate: draft.promotionStartDate,
             promotionEndDate: draft.promotionEndDate,
