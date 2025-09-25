@@ -103,6 +103,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 월간 병합 파이프라인 엔드포인트
+  app.post('/api/imports/merge', async (req, res) => {
+    try {
+      const { drafts } = req.body;
+      
+      if (!Array.isArray(drafts) || drafts.length === 0) {
+        return res.status(400).json({ message: '병합할 Draft 데이터를 제공해주세요.' });
+      }
+
+      // Validate each draft using InsertProductDraftWithSpecs schema
+      const validDrafts = [];
+      for (const draft of drafts) {
+        try {
+          const validatedDraft = insertProductDraftWithSpecsSchema.parse(draft);
+          validDrafts.push(validatedDraft);
+        } catch (error) {
+          console.error('Draft validation failed:', error);
+          return res.status(400).json({ 
+            message: 'Draft 데이터 검증에 실패했습니다.',
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
+      }
+      
+      // 병합 파이프라인 실행
+      const results = await storage.mergeProducts(validDrafts);
+      
+      res.json({
+        message: '제품 병합이 완료되었습니다.',
+        results: {
+          summary: {
+            updated: results.updated.length,
+            created: results.created.length,
+            needsReview: results.needsReview.length,
+            errors: results.errors.length,
+            total: drafts.length
+          },
+          ...results
+        }
+      });
+    } catch (error) {
+      console.error("Error in merge pipeline:", error);
+      res.status(500).json({ 
+        message: "제품 병합에 실패했습니다.",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   // Excel 파일 업로드 및 파싱 엔드포인트
   app.post('/api/upload/excel-products', (req, res, next) => {
     console.log('=== Excel Upload Route Hit ===');

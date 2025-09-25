@@ -76,6 +76,14 @@ export interface IStorage {
   attachImage(id: string, params: { role: 'main' | 'detail'; url: string }): Promise<ProductDraft | undefined>;
   approveDraft(id: string): Promise<Product | undefined>;
   deleteDraft(id: string): Promise<boolean>;
+  
+  // 월간 병합 파이프라인용 메서드
+  mergeProducts(drafts: InsertProductDraftWithSpecs[]): Promise<{
+    updated: Product[];
+    created: Product[];
+    needsReview: ProductDraft[];
+    errors: { draft: InsertProductDraftWithSpecs; error: string }[];
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -370,6 +378,101 @@ export class DatabaseStorage implements IStorage {
       .where(eq(productDrafts.id, id))
       .returning();
     return result.length > 0;
+  }
+
+  // 월간 병합 파이프라인 구현
+  async mergeProducts(drafts: InsertProductDraftWithSpecs[]): Promise<{
+    updated: Product[];
+    created: Product[];
+    needsReview: ProductDraft[];
+    errors: { draft: InsertProductDraftWithSpecs; error: string }[];
+  }> {
+    const results = {
+      updated: [] as Product[],
+      created: [] as Product[],
+      needsReview: [] as ProductDraft[],
+      errors: [] as { draft: InsertProductDraftWithSpecs; error: string }[]
+    };
+
+    for (const draft of drafts) {
+      try {
+        // 1. modelNumber가 없으면 manual review로 분기
+        if (!draft.modelNumber || draft.modelNumber.trim() === '') {
+          const reviewDraft = await db.insert(productDrafts).values({
+            ...draft,
+            status: 'needs_review'
+          }).returning();
+          results.needsReview.push(reviewDraft[0]);
+          continue;
+        }
+
+        // 2. 중복 감지: brand + modelNumber로 기존 제품 찾기
+        const existingProduct = await db
+          .select()
+          .from(products)
+          .where(and(
+            eq(products.brand, draft.brand!),
+            eq(products.modelNumber, draft.modelNumber!)
+          ))
+          .limit(1);
+
+        if (existingProduct.length > 0) {
+          // 3. 기존 제품 업데이트 (가격 및 프로모션 정보)
+          const [updatedProduct] = await db
+            .update(products)
+            .set({
+              monthlyPrice: draft.monthlyPrice,
+              originalPrice: draft.originalPrice,
+              promotionalPrice: draft.promotionalPrice,
+              promotionStartDate: draft.promotionStartDate,
+              promotionEndDate: draft.promotionEndDate,
+              updatedAt: new Date()
+            })
+            .where(eq(products.id, existingProduct[0].id))
+            .returning();
+          
+          results.updated.push(updatedProduct);
+        } else {
+          // 4. 새 제품 생성 (필수 필드 검증)
+          if (!draft.name || !draft.nameKo || !draft.descriptionKo || !draft.categoryId || !draft.monthlyPrice || !draft.brand) {
+            const reviewDraft = await db.insert(productDrafts).values({
+              ...draft,
+              status: 'needs_review'
+            }).returning();
+            results.needsReview.push(reviewDraft[0]);
+            continue;
+          }
+
+          const productData: InsertProduct = {
+            name: draft.name,
+            nameKo: draft.nameKo,
+            descriptionKo: draft.descriptionKo,
+            imageUrl: draft.mainImageUrl || '/placeholder-product.jpg',
+            categoryId: draft.categoryId,
+            monthlyPrice: draft.monthlyPrice,
+            originalPrice: draft.originalPrice,
+            rating: draft.rating || '4.5',
+            brand: draft.brand,
+            modelNumber: draft.modelNumber,
+            promotionalPrice: draft.promotionalPrice,
+            promotionStartDate: draft.promotionStartDate,
+            promotionEndDate: draft.promotionEndDate,
+            specifications: draft.specifications || {},
+          };
+
+          const [newProduct] = await db.insert(products).values(productData).returning();
+          results.created.push(newProduct);
+        }
+      } catch (error) {
+        // 5. 에러 발생시 에러 배열에 추가
+        results.errors.push({
+          draft,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+
+    return results;
   }
 }
 
