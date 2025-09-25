@@ -3,6 +3,7 @@ import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { getProductRecommendations, processChatMessage, parseProductsFromExcel } from "./gemini";
+import { isAuthenticated, isAdmin } from "./replitAuth";
 import {
   insertLeadSchema,
   insertChatMessageSchema,
@@ -103,8 +104,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // 월간 병합 파이프라인 엔드포인트
-  app.post('/api/imports/merge', async (req, res) => {
+  // 월간 병합 파이프라인 엔드포인트 (관리자 권한 필요)
+  app.post('/api/imports/merge', isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { drafts } = req.body;
       

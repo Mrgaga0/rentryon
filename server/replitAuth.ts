@@ -7,6 +7,9 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
+import { db } from "./db";
+import { users } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
@@ -153,5 +156,40 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   } catch (error) {
     res.status(401).json({ message: "Unauthorized" });
     return;
+  }
+};
+
+// 관리자 권한 체크 미들웨어 (보안 감사 로깅 포함)
+export const isAdmin: RequestHandler = async (req, res, next) => {
+  const user = req.user as any;
+  
+  if (!req.isAuthenticated() || !user.claims?.sub) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  try {
+    // 올바른 claims 위치에서 사용자 ID 및 이메일 추출
+    const sub = user.claims.sub;
+    const email = user.claims.email;
+    
+    // 현재 사용자의 관리자 권한 확인
+    const [dbUser] = await db.select({ isAdmin: users.isAdmin })
+      .from(users)
+      .where(eq(users.id, sub))
+      .limit(1);
+    
+    if (!dbUser || !dbUser.isAdmin) {
+      console.log(`🚫 Admin access denied: ${sub} (${email || 'unknown'}) - ${req.method} ${req.path}`);
+      return res.status(403).json({ 
+        message: "Admin access required. Please contact system administrator." 
+      });
+    }
+
+    // 감사 로깅 (관리자 액세스 추적)
+    console.log(`✅ Admin access granted: ${sub} (${email || 'unknown'}) - ${req.method} ${req.path}`);
+    return next();
+  } catch (error) {
+    console.error('Admin authorization check failed:', error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
