@@ -660,6 +660,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete all drafts
+  app.delete('/api/drafts', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      // CSRF protection: require X-Requested-With header
+      if (!req.headers['x-requested-with']) {
+        return res.status(400).json({ message: 'CSRF protection: X-Requested-With header required' });
+      }
+      
+      console.log(`[AUDIT] Admin user is deleting all drafts`);
+      const deletedCount = await storage.deleteAllDrafts();
+      console.log(`[AUDIT] Successfully deleted ${deletedCount} drafts by admin user`);
+      
+      res.json({
+        message: `${deletedCount}개의 Draft가 모두 삭제되었습니다.`,
+        deletedCount
+      });
+    } catch (error) {
+      console.error('Error deleting all drafts:', error);
+      res.status(500).json({ message: '모든 Draft 삭제에 실패했습니다.' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -76,6 +76,7 @@ export interface IStorage {
   attachImage(id: string, params: { role: 'main' | 'detail'; url: string }): Promise<ProductDraft | undefined>;
   approveDraft(id: string): Promise<Product | undefined>;
   deleteDraft(id: string): Promise<boolean>;
+  deleteAllDrafts(): Promise<number>;
   
   // 월간 병합 파이프라인용 메서드
   mergeProducts(drafts: InsertProductDraftWithSpecs[]): Promise<{
@@ -378,6 +379,20 @@ export class DatabaseStorage implements IStorage {
       .where(eq(productDrafts.id, id))
       .returning();
     return result.length > 0;
+  }
+
+  async deleteAllDrafts(): Promise<number> {
+    // Performance optimization: count first, then delete without returning all rows
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(productDrafts);
+    
+    if (countResult.count === 0) {
+      return 0;
+    }
+    
+    await db.delete(productDrafts);
+    return countResult.count;
   }
 
   // 월간 병합 파이프라인 구현

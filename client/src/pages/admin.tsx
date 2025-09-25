@@ -346,6 +346,46 @@ export default function AdminPage() {
     },
   });
 
+  // Delete All Drafts Mutation
+  const deleteAllDraftsMutation = useMutation<{ deletedCount: number; message: string }>({
+    mutationFn: async () => {
+      const response = await fetch('/api/drafts', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest', // CSRF protection
+        },
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || '모든 초안 삭제에 실패했습니다.');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "초안 모두 삭제 완료",
+        description: `${data.deletedCount}개의 초안이 삭제되었습니다.`,
+      });
+      
+      // Refresh data using queryClient
+      queryClient.invalidateQueries({ queryKey: ['/api/drafts'] });
+      setSelectedDrafts([]);
+      setShowMergeResults(false);
+      setMergeResults(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "삭제 실패",
+        description: error.message || "모든 초안 삭제 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // 제품 업로드 폼
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productFormSchema),
@@ -1654,6 +1694,20 @@ export default function AdminPage() {
                       data-testid="button-refresh-drafts"
                     >
                       새로고침
+                    </Button>
+                    <Button 
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        if (confirm(`정말로 모든 초안 ${drafts.length}개를 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) {
+                          deleteAllDraftsMutation.mutate();
+                        }
+                      }}
+                      disabled={drafts.length === 0 || deleteAllDraftsMutation.isPending}
+                      data-testid="button-delete-all-drafts"
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      {deleteAllDraftsMutation.isPending ? '삭제 중...' : `모든 초안 삭제 (${drafts.length})`}
                     </Button>
                     <Button 
                       disabled={selectedDrafts.length === 0}
