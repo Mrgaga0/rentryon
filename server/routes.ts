@@ -113,35 +113,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: '병합할 Draft 데이터를 제공해주세요.' });
       }
 
-      // Validate each draft using InsertProductDraftWithSpecs schema
+      // Non-blocking validation: 개별 아이템별 처리
       const validDrafts = [];
-      for (const draft of drafts) {
-        try {
-          const validatedDraft = insertProductDraftWithSpecsSchema.parse(draft);
-          validDrafts.push(validatedDraft);
-        } catch (error) {
-          console.error('Draft validation failed:', error);
-          return res.status(400).json({ 
-            message: 'Draft 데이터 검증에 실패했습니다.',
-            error: error instanceof Error ? error.message : String(error)
+      const invalidDrafts = [];
+      
+      for (let i = 0; i < drafts.length; i++) {
+        const draft = drafts[i];
+        const parseResult = insertProductDraftWithSpecsSchema.safeParse(draft);
+        
+        if (parseResult.success) {
+          validDrafts.push(parseResult.data);
+        } else {
+          console.log(`Draft validation failed for item ${i + 1}:`, parseResult.error.message);
+          invalidDrafts.push({
+            index: i + 1,
+            draft,
+            error: parseResult.error.message
           });
         }
       }
       
-      // 병합 파이프라인 실행
-      const results = await storage.mergeProducts(validDrafts);
+      // Valid 아이템만 병합 파이프라인 실행 (Non-blocking 처리)
+      let mergeResults: Awaited<ReturnType<typeof storage.mergeProducts>> = {
+        updated: [],
+        created: [],
+        needsReview: [],
+        errors: []
+      };
       
+      if (validDrafts.length > 0) {
+        mergeResults = await storage.mergeProducts(validDrafts);
+      }
+      
+      // 통합 결과 보고 (Valid + Invalid + Processing errors)
       res.json({
-        message: '제품 병합이 완료되었습니다.',
+        message: `제품 병합 완료 - 전체: ${drafts.length}, 처리성공: ${validDrafts.length}, 검증실패: ${invalidDrafts.length}`,
         results: {
           summary: {
-            updated: results.updated.length,
-            created: results.created.length,
-            needsReview: results.needsReview.length,
-            errors: results.errors.length,
-            total: drafts.length
+            total: drafts.length,
+            processed: validDrafts.length,
+            validationFailed: invalidDrafts.length,
+            updated: mergeResults.updated.length,
+            created: mergeResults.created.length,
+            needsReview: mergeResults.needsReview.length,
+            processingErrors: mergeResults.errors.length
           },
-          ...results
+          // 처리 결과들
+          updated: mergeResults.updated,
+          created: mergeResults.created,
+          needsReview: mergeResults.needsReview,
+          processingErrors: mergeResults.errors,
+          
+          // 검증 실패 아이템들 (개별 보고)
+          validationErrors: invalidDrafts
         }
       });
     } catch (error) {
