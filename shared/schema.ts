@@ -46,7 +46,7 @@ export const categories = pgTable("categories", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Products table
+// Products table - 기본 제품 정보 (변형 시스템 적용)
 export const products = pgTable("products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name", { length: 200 }).notNull(),
@@ -54,13 +54,8 @@ export const products = pgTable("products", {
   descriptionKo: text("description_ko").notNull(),
   imageUrl: varchar("image_url", { length: 500 }).notNull(),
   categoryId: varchar("category_id").notNull().references(() => categories.id),
-  monthlyPrice: decimal("monthly_price", { precision: 10, scale: 2 }).notNull(),
-  originalPrice: decimal("original_price", { precision: 10, scale: 2 }),
-  // 중복 감지 및 월간 업데이트를 위한 새 필드들
+  // 중복 감지를 위한 필드들 (변형들 간 공통)
   modelNumber: varchar("model_number", { length: 100 }), // 중복 상품 식별 키
-  promotionalPrice: decimal("promotional_price", { precision: 10, scale: 2 }), // 월간 프로모션 가격
-  promotionStartDate: timestamp("promotion_start_date"), // 프로모션 시작일
-  promotionEndDate: timestamp("promotion_end_date"), // 프로모션 종료일
   rating: decimal("rating", { precision: 3, scale: 2 }).notNull().default('4.5'),
   brand: varchar("brand", { length: 100 }).notNull(),
   specifications: jsonb("specifications").notNull(),
@@ -70,6 +65,30 @@ export const products = pgTable("products", {
 }, (table) => ({
   // 중복 감지를 위한 복합 고유 인덱스 (NULL modelNumber는 제외하여 허점 방지)
   uniqueBrandModel: uniqueIndex("uq_products_brand_model").on(table.brand, table.modelNumber).where(sql`model_number IS NOT NULL`),
+}));
+
+// Product variants table - 렌탈 조건들 (가격, 기간, 프로모션)
+export const productVariants = pgTable("product_variants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productId: varchar("product_id").notNull().references(() => products.id, { onDelete: 'cascade' }),
+  // 렌탈 조건 정보
+  monthlyPrice: decimal("monthly_price", { precision: 10, scale: 2 }).notNull(),
+  originalPrice: decimal("original_price", { precision: 10, scale: 2 }),
+  rentalPeriodMonths: integer("rental_period_months"), // 렌탈 기간 (개월)
+  // 프로모션 정보
+  promotionalPrice: decimal("promotional_price", { precision: 10, scale: 2 }), // 월간 프로모션 가격
+  promotionStartDate: timestamp("promotion_start_date"), // 프로모션 시작일
+  promotionEndDate: timestamp("promotion_end_date"), // 프로모션 종료일
+  // 변형 메타데이터
+  variantName: varchar("variant_name", { length: 100 }), // 변형 이름 (예: "12개월 플랜", "24개월 플랜")
+  isDefault: boolean("is_default").notNull().default(false), // 기본 선택 변형
+  isActive: boolean("is_active").notNull().default(true),
+  displayOrder: integer("display_order").notNull().default(0), // 표시 순서
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  // 제품당 하나의 기본 변형만 허용
+  uniqueDefaultPerProduct: uniqueIndex("uq_product_variants_default").on(table.productId).where(sql`is_default = true`),
 }));
 
 // Rentals table
@@ -162,8 +181,16 @@ export const productsRelations = relations(products, ({ one, many }) => ({
     fields: [products.categoryId],
     references: [categories.id],
   }),
+  variants: many(productVariants),
   rentals: many(rentals),
   wishlist: many(wishlist),
+}));
+
+export const productVariantsRelations = relations(productVariants, ({ one }) => ({
+  product: one(products, {
+    fields: [productVariants.productId],
+    references: [products.id],
+  }),
 }));
 
 export const rentalsRelations = relations(rentals, ({ one }) => ({
@@ -251,6 +278,12 @@ export const insertLeadSchema = createInsertSchema(leads).omit({
 });
 
 export const insertProductDraftSchema = createInsertSchema(productDrafts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertProductVariantSchema = createInsertSchema(productVariants).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -373,4 +406,6 @@ export type Lead = typeof leads.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
 export type ProductDraft = typeof productDrafts.$inferSelect;
 export type InsertProductDraft = z.infer<typeof insertProductDraftSchema>;
+export type InsertProductVariant = z.infer<typeof insertProductVariantSchema>;
+export type SelectProductVariant = typeof productVariants.$inferSelect;
 export type InsertProductDraftWithSpecs = z.infer<typeof insertProductDraftWithSpecsSchema>;
