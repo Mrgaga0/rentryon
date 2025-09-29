@@ -16,14 +16,24 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 
+const dataRoot = path.resolve(process.env.DATA_ROOT ?? path.join(process.cwd(), 'uploads'));
+const productUploadDir = path.join(dataRoot, "products");
+
+try {
+  if (!fs.existsSync(dataRoot)) {
+    fs.mkdirSync(dataRoot, { recursive: true });
+  }
+} catch (error) {
+  console.error('Failed to ensure data root directory:', error);
+}
+
 // 파일 업로드 설정
 const uploadStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = 'uploads/products';
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+  destination: (_req, _file, cb) => {
+    if (!fs.existsSync(productUploadDir)) {
+      fs.mkdirSync(productUploadDir, { recursive: true });
     }
-    cb(null, uploadDir);
+    cb(null, productUploadDir);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -84,7 +94,7 @@ const excelUpload = multer({
 export async function registerRoutes(app: Express): Promise<Server> {
 
   // 정적 파일 서빙 설정
-  app.use('/uploads', express.static('uploads'));
+  app.use('/uploads', express.static(dataRoot));
 
   // 파일 업로드 엔드포인트
   app.post('/api/upload/product-image', upload.single('image'), (req, res) => {
@@ -425,9 +435,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(savedDrafts);
     } catch (error) {
       console.error("Error creating drafts:", error);
+      const baseMessage = "Draft 저장에 실패했습니다.";
+      const detail = error instanceof Error ? error.message : String(error);
       res.status(500).json({ 
-        message: "Draft 저장에 실패했습니다.",
-        error: error instanceof Error ? error.message : String(error)
+        message: `${baseMessage} ${detail}`,
+        error: detail
       });
     }
   });
@@ -685,3 +697,4 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   return httpServer;
 }
+

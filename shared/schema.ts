@@ -58,6 +58,11 @@ export const products = pgTable("products", {
   modelNumber: varchar("model_number", { length: 100 }), // 중복 상품 식별 키
   rating: decimal("rating", { precision: 3, scale: 2 }).notNull().default('4.5'),
   brand: varchar("brand", { length: 100 }).notNull(),
+  monthlyPrice: decimal("monthly_price", { precision: 10, scale: 2 }),
+  originalPrice: decimal("original_price", { precision: 10, scale: 2 }),
+  promotionalPrice: decimal("promotional_price", { precision: 10, scale: 2 }),
+  promotionStartDate: timestamp("promotion_start_date"),
+  promotionEndDate: timestamp("promotion_end_date"),
   specifications: jsonb("specifications").notNull(),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),

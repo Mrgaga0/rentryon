@@ -24,6 +24,7 @@ import {
   type ProductDraft,
   type InsertProductDraft,
   type InsertProductDraftWithSpecs,
+  type ProductSpecifications,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, like, and, gte, lte, inArray, sql } from "drizzle-orm";
@@ -268,9 +269,51 @@ export class DatabaseStorage implements IStorage {
   // ProductDraft operations for Excel import workflow
   async createDrafts(drafts: InsertProductDraftWithSpecs[]): Promise<ProductDraft[]> {
     if (drafts.length === 0) return [];
-    
-    const result = await db.insert(productDrafts).values(drafts).returning();
-    return result;
+
+    const existingCategories = await db.select({ id: categories.id }).from(categories);
+    const validCategoryIds = new Set(existingCategories.map((category) => category.id));
+
+    const sanitizedDrafts = drafts.map((draft) => {
+      const fallbackSpecifications: ProductSpecifications = {
+        features: [],
+        colors: [],
+        functions: [],
+        tags: [],
+        extraFeatures: [],
+      };
+
+      const preparedDraft: InsertProductDraftWithSpecs = {
+        ...draft,
+        categoryId:
+          draft.categoryId && validCategoryIds.has(draft.categoryId)
+            ? draft.categoryId
+            : null,
+        monthlyPrice: draft.monthlyPrice ?? undefined,
+        originalPrice: draft.originalPrice ?? undefined,
+        promotionalPrice: draft.promotionalPrice ?? undefined,
+        detailImageUrls: Array.isArray(draft.detailImageUrls) ? draft.detailImageUrls : [],
+        errors: Array.isArray(draft.errors) ? draft.errors : [],
+        specifications: draft.specifications ?? fallbackSpecifications,
+      };
+
+      if (!preparedDraft.categoryId) {
+        preparedDraft.errors.push('카테고리를 확인할 수 없어 검토가 필요합니다.');
+      }
+
+      return preparedDraft;
+    });
+
+    try {
+      const result = await db.insert(productDrafts).values(sanitizedDrafts).returning();
+      return result;
+    } catch (error) {
+      if (isConnectionIssue(error)) {
+        throw new Error(
+          'Draft를 저장할 수 없습니다. Supabase 데이터베이스에 연결하지 못했습니다. 개발 환경에서 IPv6가 막혀 있다면 DATABASE_URL을 Supabase 풀러 호스트(예: aws-0-<region>.pooler.supabase.com:6543)로 변경하거나 VPN/터널을 통해 IPv6를 활성화해주세요.'
+        );
+      }
+      throw error;
+    }
   }
 
   async listDrafts(filters?: { status?: string; limit?: number; offset?: number }): Promise<(ProductDraft & { category?: Category })[]> {
@@ -502,3 +545,23 @@ export class DatabaseStorage implements IStorage {
 }
 
 export const storage = new DatabaseStorage();
+
+function isConnectionIssue(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const code = (error as { code?: string }).code;
+  if (code && ['ENOTFOUND', 'ENETUNREACH', 'ECONNREFUSED', 'EAI_AGAIN'].includes(code)) {
+    return true;
+  }
+
+  const message = (error as { message?: string }).message ?? '';
+  if (message.includes('ENOTFOUND') || message.includes('ENETUNREACH') || message.includes('ECONNREFUSED')) {
+    return true;
+  }
+
+  const nested = (error as { error?: unknown }).error;
+  if (nested) {
+    return isConnectionIssue(nested);
+  }
+
+  return false;
+}

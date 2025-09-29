@@ -578,8 +578,29 @@ export async function parseProductsFromExcel(
     
   } catch (error) {
     console.error("Excel 파싱 오류:", error);
-    throw new Error(`Excel 파일 파싱에 실패했습니다: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`Excel 파일 파싱에 실패했습니다: ${formatError(error)}`);
   }
+}
+
+function formatError(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (typeof error === 'object' && error !== null) {
+    const maybeMessage = (error as { message?: unknown }).message;
+    if (typeof maybeMessage === 'string' && maybeMessage.length > 0) {
+      return maybeMessage;
+    }
+
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return Object.prototype.toString.call(error);
+    }
+  }
+
+  return String(error);
 }
 
 async function mapExcelColumnsWithAI(

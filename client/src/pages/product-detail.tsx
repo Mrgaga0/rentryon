@@ -23,21 +23,23 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Star, Shield, Truck, ArrowLeft, MessageSquare, Phone, X } from "lucide-react";
 import { Link } from "wouter";
-import { insertLeadSchema } from "@shared/schema";
+import { insertLeadSchema, type ProductSpecifications } from "@shared/schema";
 
 // Consultation form schema - match the insertLeadSchema exactly
 const consultationFormSchema = insertLeadSchema;
 
 type ConsultationFormData = z.infer<typeof insertLeadSchema>;
 
+type RentalPeriodOption = NonNullable<ProductSpecifications["rentalOptions"]>["minimumPeriod"][number];
+type MaintenanceCycleOption = NonNullable<ProductSpecifications["rentalOptions"]>["maintenanceCycle"][number];
 
 export default function ProductDetail() {
   const [match, params] = useRoute("/products/:id");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showConsultationForm, setShowConsultationForm] = useState(false);
-  const [selectedRentalOption, setSelectedRentalOption] = useState<any>(null);
-  const [selectedMaintenanceOption, setSelectedMaintenanceOption] = useState<any>(null);
+  const [selectedRentalOption, setSelectedRentalOption] = useState<RentalPeriodOption | null>(null);
+  const [selectedMaintenanceOption, setSelectedMaintenanceOption] = useState<MaintenanceCycleOption | null>(null);
 
   const { data: product, isLoading } = useQuery({
     queryKey: ["/api/products", params?.id],
@@ -88,9 +90,9 @@ export default function ProductDetail() {
   useEffect(() => {
     if (!product) return;
     
-    const specs = (product as any)?.specifications || {};
-    const rentals = specs?.rentalOptions?.minimumPeriod || [];
-    const maintenance = specs?.rentalOptions?.maintenanceCycle || [];
+    const specs = (product as any)?.specifications as ProductSpecifications | undefined;
+    const rentals: RentalPeriodOption[] = specs?.rentalOptions?.minimumPeriod ?? [];
+    const maintenance: MaintenanceCycleOption[] = specs?.rentalOptions?.maintenanceCycle ?? [];
     
     if (rentals.length > 0 && !selectedRentalOption) {
       setSelectedRentalOption(rentals[0]);
@@ -156,9 +158,9 @@ export default function ProductDetail() {
   const monthlyPrice = parseFloat((product as any).monthlyPrice);
 
   // 제품 옵션 가져오기
-  const specifications = (product as any)?.specifications || {};
-  const rentalOptions = specifications?.rentalOptions?.minimumPeriod || [];
-  const maintenanceOptions = specifications?.rentalOptions?.maintenanceCycle || [];
+  const specifications = (product as any)?.specifications as ProductSpecifications | undefined;
+  const rentalOptions = (specifications?.rentalOptions?.minimumPeriod ?? []) as RentalPeriodOption[];
+  const maintenanceOptions = (specifications?.rentalOptions?.maintenanceCycle ?? []) as MaintenanceCycleOption[];
 
   // 가격 계산
   const calculateTotalPrice = () => {
@@ -246,7 +248,7 @@ export default function ProductDetail() {
                         value={selectedRentalOption?.months?.toString() || ""}
                         onValueChange={(value) => {
                           const option = rentalOptions.find(opt => opt.months.toString() === value);
-                          setSelectedRentalOption(option);
+                          setSelectedRentalOption(option ?? null);
                         }}
                       >
                         <SelectTrigger data-testid="select-rental-period">
@@ -276,7 +278,7 @@ export default function ProductDetail() {
                         value={selectedMaintenanceOption?.months?.toString() || ""}
                         onValueChange={(value) => {
                           const option = maintenanceOptions.find(opt => opt.months.toString() === value);
-                          setSelectedMaintenanceOption(option);
+                          setSelectedMaintenanceOption(option ?? null);
                         }}
                       >
                         <SelectTrigger data-testid="select-maintenance-cycle">
