@@ -2,7 +2,9 @@ import { GoogleGenAI } from "@google/genai";
 import * as XLSX from 'xlsx';
 import { insertProductDraftWithSpecsSchema, type InsertProductDraftWithSpecs } from "@shared/schema";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const geminiApiKey = process.env.GEMINI_API_KEY;
+const ai = geminiApiKey ? new GoogleGenAI({ apiKey: geminiApiKey }) : null;
+const isGeminiConfigured = Boolean(geminiApiKey);
 
 export interface ProductRecommendation {
   productIds: string[];
@@ -45,7 +47,15 @@ export async function getProductRecommendations(
   }
 ): Promise<ProductRecommendation> {
   try {
-    const prompt = `당신은 한국의 가전제품 렌탈 서비스 AI 상담사입니다. 
+    if (!ai) {
+      console.warn("Gemini API key is not configured. Returning fallback product recommendations.");
+      return {
+        productIds: [],
+        reasoning: "AI 추천 기능이 비활성화되어 있습니다. GEMINI_API_KEY를 설정하면 맞춤 추천을 받을 수 있습니다."
+      };
+    }
+
+    const prompt = `당신은 한국의 가전제품 렌탈 서비스 AI 상담사입니다.
 사용자 정보를 바탕으로 최적의 가전제품을 추천해주세요.
 
 사용자 정보:
@@ -118,6 +128,13 @@ export async function processChatMessage(
   }
 ): Promise<ChatResponse> {
   try {
+    if (!ai) {
+      console.warn("Gemini API key is not configured. Returning fallback chat response.");
+      return {
+        message: "AI 상담 기능이 비활성화되어 있습니다. GEMINI_API_KEY를 설정하면 자동 응답을 사용할 수 있습니다.",
+      };
+    }
+
     const prompt = `당신은 한국의 가전제품 렌탈 서비스 AI 상담사입니다.
 사용자의 질문에 친근하고 전문적으로 답변해주세요.
 
@@ -615,6 +632,14 @@ async function mapExcelColumnsWithAI(
   confidence?: number;
   error?: string;
 }> {
+  if (!isGeminiConfigured || !ai) {
+    console.warn("Gemini API key is not configured. Skipping AI column mapping and using fallback mapping.");
+    return {
+      success: false,
+      error: "Gemini API가 구성되지 않았습니다.",
+    };
+  }
+
   try {
     // Safe Gemini response accessor with fallback
     const safeGetResponse = (response: any): string | null => {
