@@ -595,7 +595,7 @@ export default function AdminPage() {
         >
           <div>
             <h1 className="text-3xl font-bold text-foreground" data-testid="admin-title">
-              렌탈리움 관리자
+              렌트리온 관리자
             </h1>
             <p className="text-muted-foreground mt-1">시스템 관리 및 모니터링</p>
           </div>

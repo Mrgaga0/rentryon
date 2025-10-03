@@ -1,6 +1,6 @@
 /**
  * PageTransition 컴포넌트
- * 렌탈리움의 브랜드에 맞는 페이지 전환 효과를 제공
+ * 렌트리온의 브랜드에 맞는 페이지 전환 효과를 제공
  */
 
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";

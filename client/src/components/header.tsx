@@ -62,7 +62,7 @@ export default function Header() {
             onClick={handleLogoClick}
           >
             <Home className="text-primary text-2xl h-6 w-6" />
-            <h1 className="text-xl font-bold text-foreground">렌탈리움</h1>
+            <h1 className="text-xl font-bold text-foreground">렌트리온</h1>
           </div>
           
           {/* Desktop Navigation */}
