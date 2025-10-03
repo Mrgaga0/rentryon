@@ -548,6 +548,9 @@ export const storage = new DatabaseStorage();
 
 function isConnectionIssue(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
+  if (error instanceof AggregateError) {
+    return error.errors?.some((nested) => isConnectionIssue(nested)) ?? false;
+  }
   const code = (error as { code?: string }).code;
   if (code && ['ENOTFOUND', 'ENETUNREACH', 'ECONNREFUSED', 'EAI_AGAIN'].includes(code)) {
     return true;

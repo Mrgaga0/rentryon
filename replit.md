@@ -2,7 +2,7 @@
 
 ## Overview
 
-RentalRium (렌탈리움) is a Korean appliance rental platform that allows users to browse, search, and rent household appliances. The application features AI-powered product recommendations using Google Gemini, consultation-first business model via KakaoTalk integration, and a modern React frontend built with TypeScript and Tailwind CSS. Users can explore product categories, view detailed product information, request consultations, and interact with an AI chatbot for personalized recommendations.
+렌트리온(Rentryon)은 한국의 가전제품 렌탈 플랫폼으로, 사용자가 다양한 가전을 탐색하고 상담을 신청하며 AI 추천을 받을 수 있도록 돕습니다. Google Gemini 기반 추천 엔진, 카카오톡 상담 연동, TypeScript + Tailwind CSS로 구현된 현대적인 React 프런트엔드를 갖추고 있어 제품 비교와 상담 전환에 최적화되어 있습니다.
 
 ## User Preferences
 

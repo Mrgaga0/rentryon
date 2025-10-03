@@ -18,6 +18,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
+import { SITE_NAME_KO } from "@shared/branding";
 
 // 구조화된 제품 업로드 폼 스키마 (레퍼런스 앱 패턴 적용)
 const productFormSchema = z.object({
@@ -116,7 +117,16 @@ export default function AdminPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Excel 파일 업로드에 실패했습니다.');
+        let errorMessage = 'Excel 파일 업로드에 실패했습니다.';
+        try {
+          const errorData = await response.json();
+          if (errorData?.message) {
+            errorMessage = errorData.message;
+          }
+        } catch (parseError) {
+          console.error('Failed to parse Excel upload error response:', parseError);
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
@@ -586,7 +596,7 @@ export default function AdminPage() {
         >
           <div>
             <h1 className="text-3xl font-bold text-foreground" data-testid="admin-title">
-              렌탈리움 관리자
+              {`${SITE_NAME_KO} 관리자`}
             </h1>
             <p className="text-muted-foreground mt-1">시스템 관리 및 모니터링</p>
           </div>

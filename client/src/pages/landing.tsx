@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Home, Search, Snowflake, ShirtIcon, Wind, Tv, Microwave, Bot, Truck, Shield, Facebook, Instagram, Youtube } from "lucide-react";
 import { motion } from "framer-motion";
 import Header from "@/components/header";
+import { SITE_COPYRIGHT, SITE_NAME_KO } from "@shared/branding";
 
 export default function Landing() {
   const { toast } = useToast();
@@ -107,7 +108,7 @@ export default function Landing() {
       <section className="py-8 md:py-12 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center mb-8">
-            <h3 className="text-xl md:text-2xl font-bold text-foreground mb-4" data-testid="text-features-title">렌탈리움을 선택하는 이유</h3>
+            <h3 className="text-xl md:text-2xl font-bold text-foreground mb-4" data-testid="text-features-title">{`${SITE_NAME_KO}을 선택하는 이유`}</h3>
             <p className="text-muted-foreground max-w-2xl mx-auto">
               합리적인 가격과 편리한 서비스로 가전제품 렌탈의 새로운 기준을 제시합니다
             </p>
@@ -192,9 +193,9 @@ export default function Landing() {
             <div className="flex flex-col md:flex-row justify-between items-center">
               <div className="flex items-center space-x-2 mb-4 md:mb-0">
                 <Home className="text-primary h-5 w-5" />
-                <span className="font-bold text-foreground">렌탈리움</span>
+                <span className="font-bold text-foreground">{SITE_NAME_KO}</span>
               </div>
-              <p className="text-sm text-muted-foreground">© 2024 렌탈리움. All rights reserved.</p>
+              <p className="text-sm text-muted-foreground">{SITE_COPYRIGHT}</p>
             </div>
           </div>
         </div>

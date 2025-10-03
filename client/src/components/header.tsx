@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useLocation } from "wouter";
+import { SITE_NAME_KO } from "@shared/branding";
 
 export default function Header() {
   const [clickSequence, setClickSequence] = useState<number[]>([]);
@@ -62,7 +63,7 @@ export default function Header() {
             onClick={handleLogoClick}
           >
             <Home className="text-primary text-2xl h-6 w-6" />
-            <h1 className="text-xl font-bold text-foreground">렌탈리움</h1>
+            <h1 className="text-xl font-bold text-foreground">{SITE_NAME_KO}</h1>
           </div>
           
           {/* Desktop Navigation */}

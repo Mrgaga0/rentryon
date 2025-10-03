@@ -1,4 +1,4 @@
-# RentSmart Home
+# 렌트리온 (Rentryon)
 
 ## 개발 환경
 - `npm install` 후 `npm run dev`로 Express + Vite 개발 서버 실행
