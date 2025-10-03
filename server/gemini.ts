@@ -482,7 +482,7 @@ export async function parseProductsFromExcel(
     
     console.log(`Best header found at row ${headerRowIndex} with score ${bestHeaderScore}`);
     
-    const headers = jsonData[headerRowIndex];
+    const headerRow = Array.isArray(jsonData[headerRowIndex]) ? jsonData[headerRowIndex] : [];
     const sampleData = jsonData.slice(Math.max(0, headerRowIndex - 1), Math.min(headerRowIndex + 5, jsonData.length));
     
     // 3. Gemini AI를 사용해서 컬럼 매핑 (fallback 포함)
@@ -505,12 +505,12 @@ export async function parseProductsFromExcel(
         console.log(`Using AI mapping with confidence: ${confidence}`);
       } else {
         console.warn(`AI mapping failed validation or low confidence (${confidence}). Using fallback.`);
-        finalMapping = createFallbackMapping(headers);
+        finalMapping = createFallbackMapping(headerRow);
         mappingSource = 'fallback';
       }
     } else {
       console.warn("AI mapping failed. Using deterministic fallback mapping.");
-      finalMapping = createFallbackMapping(headers);
+      finalMapping = createFallbackMapping(headerRow);
       mappingSource = 'fallback';
     }
     
@@ -549,9 +549,12 @@ export async function parseProductsFromExcel(
 
         // 행 데이터를 객체로 변환
         const rowData: any = {};
-        headers.forEach((header: string, index: number) => {
-          if (header && row[index] !== undefined) {
-            rowData[header] = row[index];
+        headerRow.forEach((headerValue: unknown, index: number) => {
+          const sanitizedHeader = sanitizeHeaderValue(headerValue);
+          if (!sanitizedHeader) return;
+
+          if (row[index] !== undefined) {
+            rowData[sanitizedHeader] = row[index];
           }
         });
 
@@ -748,19 +751,36 @@ ${JSON.stringify(sampleData, null, 2)}
 }
 
 // Header normalization utility
-function normalizeHeader(header: string): string {
-  return header.trim().toLowerCase().replace(/\s+/g, ' ');
+function sanitizeHeaderValue(header: unknown): string | null {
+  if (header === null || header === undefined) {
+    return null;
+  }
+
+  const headerString = typeof header === 'string' ? header : String(header);
+  const trimmed = headerString.trim();
+
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeHeader(header: unknown): string {
+  const sanitized = sanitizeHeaderValue(header);
+  if (!sanitized) return '';
+  return sanitized.toLowerCase().replace(/\s+/g, ' ');
 }
 
 // Deterministic fallback mapping when AI fails
-function createFallbackMapping(headers: string[]): any {
+function createFallbackMapping(headers: unknown[]): any {
   console.log('=== FALLBACK MAPPING DEBUG ===');
   console.log('Input headers:', headers);
-  
+
   const fallbackMappings: any = {};
-  const normalizedHeaders = headers.map(h => normalizeHeader(h));
+  const sanitizedHeaders = headers
+    .map((header) => sanitizeHeaderValue(header))
+    .filter((header): header is string => Boolean(header));
+
+  const normalizedHeaders = sanitizedHeaders.map(h => normalizeHeader(h));
   console.log('Normalized headers:', normalizedHeaders);
-  
+
   // Common patterns for Korean headers
   const patterns = {
     name: ['제품명', 'product name', '상품명', 'name'],
@@ -775,11 +795,11 @@ function createFallbackMapping(headers: string[]): any {
   console.log('Checking patterns against headers...');
   Object.entries(patterns).forEach(([field, keywords]) => {
     console.log(`\nChecking field "${field}" with keywords:`, keywords);
-    
-    for (const header of headers) {
+
+    for (const header of sanitizedHeaders) {
       const normalizedHeader = normalizeHeader(header);
       console.log(`  Checking header "${header}" (normalized: "${normalizedHeader}")`);
-      
+
       for (const keyword of keywords) {
         const normalizedKeyword = keyword.toLowerCase();
         const matches = normalizedHeader.includes(normalizedKeyword);
