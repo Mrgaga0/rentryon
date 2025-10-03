@@ -91,7 +91,11 @@ const excelUpload = multer({
   }
 });
 
-export async function registerRoutes(app: Express): Promise<Server> {
+interface RegisterRoutesOptions {
+  createServer?: boolean;
+}
+
+export async function registerRoutes(app: Express, options: RegisterRoutesOptions = {}): Promise<Server | undefined> {
 
   // 정적 파일 서빙 설정
   app.use('/uploads', express.static(dataRoot));
@@ -693,6 +697,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: '모든 Draft 삭제에 실패했습니다.' });
     }
   });
+
+  if (options.createServer === false) {
+    return undefined;
+  }
 
   const httpServer = createServer(app);
   return httpServer;
