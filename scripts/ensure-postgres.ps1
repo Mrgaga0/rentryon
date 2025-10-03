@@ -1,8 +1,8 @@
 param(
-  [string]$ContainerName = "rentsmart-postgres",
+  [string]$ContainerName = "rentryon-postgres",
   [int]$HostPort = 5432,
   [string]$Password = "postgres",
-  [string]$Database = "rentsmart_home"
+  [string]$Database = "rentryon"
 )
 
 function Test-Command($Name) {
