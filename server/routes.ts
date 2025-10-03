@@ -62,31 +62,37 @@ const excelUpload = multer({
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB 제한
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req, file, cb) => {
     console.log('Multer file filter:', {
       originalname: file.originalname,
       mimetype: file.mimetype,
       size: file.size
     });
-    
+
     // Excel 파일만 허용
-    const allowedMimes = [
+    const allowedMimes = new Set([
       'application/vnd.ms-excel',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel.sheet.macroEnabled.12',
+      'application/vnd.ms-excel.sheet.binary.macroEnabled.12',
+      'application/vnd.ms-excel.template.macroEnabled.12',
+      'application/vnd.ms-excel.addin.macroEnabled.12',
       'application/excel',
       'application/x-excel',
-      'application/x-msexcel'
-    ];
-    
-    const isValidMime = allowedMimes.includes(file.mimetype);
-    const isValidExtension = file.originalname.match(/\.(xlsx|xls)$/i);
-    
+      'application/x-msexcel',
+      'application/octet-stream',
+      'text/csv'
+    ]);
+
+    const isValidMime = allowedMimes.has(file.mimetype);
+    const isValidExtension = file.originalname.match(/\.(xlsx|xls|xlsm|xlsb|csv)$/i);
+
     if (isValidMime || isValidExtension) {
       console.log('File accepted by multer');
       cb(null, true);
     } else {
       console.log('File rejected by multer');
-      cb(new Error(`지원되지 않는 파일 형식입니다. Excel 파일(.xlsx, .xls)만 업로드 가능합니다. (받은 타입: ${file.mimetype})`));
+      cb(new Error(`지원되지 않는 파일 형식입니다. Excel 또는 CSV 파일(.xlsx, .xls, .xlsm, .xlsb, .csv)만 업로드 가능합니다. (받은 타입: ${file.mimetype || '알 수 없음'})`));
     }
   }
 });
@@ -196,7 +202,23 @@ export async function registerRoutes(app: Express, options: RegisterRoutesOption
     console.log('=== Excel Upload Route Hit ===');
     console.log('Request headers:', req.headers);
     console.log('Content-Type:', req.headers['content-type']);
-    excelUpload.single('excel')(req, res, next);
+    excelUpload.single('excel')(req, res, (err: unknown) => {
+      if (err) {
+        console.error('Excel upload rejected before parsing:', err);
+        if (err instanceof multer.MulterError) {
+          return res.status(400).json({
+            message: err.code === 'LIMIT_FILE_SIZE'
+              ? '파일이 너무 큽니다. 10MB 이하의 파일을 업로드해주세요.'
+              : `파일 업로드를 처리하지 못했습니다: ${err.message}`
+          });
+        }
+
+        const message = err instanceof Error ? err.message : '파일 업로드 중 알 수 없는 오류가 발생했습니다.';
+        return res.status(400).json({ message });
+      }
+
+      next();
+    });
   }, async (req, res) => {
     console.log('=== Excel Upload Started ===');
     try {
