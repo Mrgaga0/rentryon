@@ -42,11 +42,7 @@ Import-DotEnv $envFile
 if (-not $env:NODE_ENV) { $env:NODE_ENV = "development" }
 if (-not $env:PORT -or $env:PORT.Trim() -eq "") { $env:PORT = "5000" }
 
-$folderName = [string]::Concat(
-  [char]0xB80C, [char]0xD2B8, [char]0xB9AC, [char]0xC628,
-  [char]0xB80C, [char]0xD2B8, [char]0xB9AC, [char]0xC628,
-  [char]0xD648, [char]0xD398, [char]0xC774, [char]0xC9C0
-)
+$folderName = "렌트리온홈페이지"
 $defaultDataRoot = "Y:\$folderName\data"
 
 if (-not $env:DATA_ROOT -or $env:DATA_ROOT.Trim() -eq "") {
@@ -101,7 +97,7 @@ if ($missing.Count -gt 0) {
   exit 1
 }
 
-Write-Host "Starting RentSmartHome dev server on http://localhost:$($env:PORT)" -ForegroundColor Green
+Write-Host "Starting 렌트리온 dev server on http://localhost:$($env:PORT)" -ForegroundColor Green
 try {
   Start-Process "http://localhost:$($env:PORT)" | Out-Null
 } catch {
