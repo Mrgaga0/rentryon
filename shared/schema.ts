@@ -336,7 +336,7 @@ export const productSpecificationsSchema = z.object({
   basicInfo: productBasicInfoSchema.optional(),
   extraFeatures: z.array(z.string()).default([]), // ["고온", "UV 살균", "IoT 기능"]
   serviceInfo: productServiceInfoSchema.optional(),
-});
+}).passthrough();
 
 // Enhanced product schema with structured specifications validation
 export const insertProductWithSpecsSchema = insertProductSchema

@@ -501,34 +501,41 @@ export async function parseProductsFromExcel(
     
     const headerRow = Array.isArray(jsonData[headerRowIndex]) ? jsonData[headerRowIndex] : [];
     const sampleData = jsonData.slice(Math.max(0, headerRowIndex - 1), Math.min(headerRowIndex + 5, jsonData.length));
-    
+
     // 3. Gemini AI를 사용해서 컬럼 매핑 (fallback 포함)
     let finalMapping: any;
     let confidence = 0;
     let mappingSource: 'ai' | 'fallback' = 'fallback';
-    
-    const mappingResult = await mapExcelColumnsWithAI(sampleData, fileName);
-    
-    let validationErrors: string[] = [];
-    
-    if (mappingResult.success && mappingResult.mapping) {
-      confidence = mappingResult.confidence || 0;
-      const validation = validateMapping(mappingResult.mapping);
-      validationErrors = validation.errors;
-      
-      if (validation.isValid && confidence >= 0.7) { // 70% confidence minimum
-        finalMapping = mappingResult.mapping;
-        mappingSource = 'ai';
-        console.log(`Using AI mapping with confidence: ${confidence}`);
+
+    const validationErrors: string[] = [];
+
+    if (isRentalFeeTemplateHeader(headerRow)) {
+      console.log('Detected 렌탈료 template header. Using manual mapping.');
+      const manualMapping = createRentalFeeTemplateMapping(headerRow, jsonData, headerRowIndex, fileName, selectedSheetName);
+      finalMapping = manualMapping.mapping;
+      confidence = manualMapping.confidence;
+    } else {
+      const mappingResult = await mapExcelColumnsWithAI(sampleData, fileName);
+
+      if (mappingResult.success && mappingResult.mapping) {
+        confidence = mappingResult.confidence || 0;
+        const validation = validateMapping(mappingResult.mapping);
+        validationErrors.push(...validation.errors);
+
+        if (validation.isValid && confidence >= 0.7) { // 70% confidence minimum
+          finalMapping = mappingResult.mapping;
+          mappingSource = 'ai';
+          console.log(`Using AI mapping with confidence: ${confidence}`);
+        } else {
+          console.warn(`AI mapping failed validation or low confidence (${confidence}). Using fallback.`);
+          finalMapping = createFallbackMapping(headerRow);
+          mappingSource = 'fallback';
+        }
       } else {
-        console.warn(`AI mapping failed validation or low confidence (${confidence}). Using fallback.`);
+        console.warn("AI mapping failed. Using deterministic fallback mapping.");
         finalMapping = createFallbackMapping(headerRow);
         mappingSource = 'fallback';
       }
-    } else {
-      console.warn("AI mapping failed. Using deterministic fallback mapping.");
-      finalMapping = createFallbackMapping(headerRow);
-      mappingSource = 'fallback';
     }
     
     // Check for essential fields
@@ -793,6 +800,149 @@ function normalizeHeader(header: unknown): string {
   return sanitized.toLowerCase().replace(/\s+/g, ' ');
 }
 
+const RENTAL_TEMPLATE_HEADERS = [
+  '제품군',
+  '마케팅네임',
+  '제품명',
+  '렌탈료소유권',
+  '리스구분',
+  '점검주기',
+  '정상가',
+  '약정할인가'
+] as const;
+
+function isRentalFeeTemplateHeader(headerRow: unknown[]): boolean {
+  if (!Array.isArray(headerRow)) return false;
+
+  const sanitized = headerRow.map((value) => sanitizeHeaderValue(value) ?? '');
+  if (sanitized.length < RENTAL_TEMPLATE_HEADERS.length) {
+    return false;
+  }
+
+  return RENTAL_TEMPLATE_HEADERS.every((expected, index) => sanitized[index] === expected);
+}
+
+function createRentalFeeTemplateMapping(
+  headerRow: unknown[],
+  jsonData: any[],
+  headerRowIndex: number,
+  fileName: string,
+  sheetName: string
+): { mapping: any; confidence: number } {
+  const columnMappings: Record<string, any> = {
+    마케팅네임: { field: 'nameKo', transformer: 'text', alsoSetName: true },
+    제품명: { field: 'modelNumber', transformer: 'text' },
+    약정할인가: { field: 'monthlyPrice', transformer: 'price' },
+    정상가: { field: 'originalPrice', transformer: 'price' },
+    제품군: { field: 'categoryId', transformer: 'category' }
+  };
+
+  const brandGuess = inferBrandFromContext(fileName, sheetName, jsonData, headerRowIndex);
+
+  const groupIndex = headerRow.findIndex((value) => sanitizeHeaderValue(value) === '제품군');
+  let categoryGuess = '';
+
+  if (groupIndex !== -1) {
+    const firstDataRow = jsonData[headerRowIndex + 1];
+    if (Array.isArray(firstDataRow)) {
+      const rawCategory = firstDataRow[groupIndex];
+      if (rawCategory !== null && rawCategory !== undefined && String(rawCategory).trim().length > 0) {
+        categoryGuess = String(rawCategory);
+      }
+    }
+  }
+
+  return {
+    mapping: {
+      columnMappings,
+      categoryGuess,
+      brandGuess
+    },
+    confidence: 1
+  };
+}
+
+function inferBrandFromContext(
+  fileName: string,
+  sheetName: string,
+  jsonData: any[],
+  headerRowIndex: number
+): string {
+  const brandPatterns = [
+    { search: '웅진코웨이', value: '코웨이' },
+    { search: '코웨이', value: '코웨이' },
+    { search: '청호나이스', value: '청호나이스' },
+    { search: '청호', value: '청호' },
+    { search: '쿠쿠홈시스', value: '쿠쿠' },
+    { search: '쿠쿠', value: '쿠쿠' },
+    { search: '삼성전자', value: '삼성전자' },
+    { search: '삼성', value: '삼성전자' },
+    { search: 'lg전자', value: 'LG전자' },
+    { search: 'lg', value: 'LG전자' },
+    { search: 'sk매직', value: 'SK매직' },
+    { search: 'skmagic', value: 'SK매직' },
+    { search: '위니아', value: '위니아' },
+    { search: '현대렌탈케어', value: '현대렌탈케어' },
+    { search: '바디프랜드', value: '바디프랜드' },
+    { search: '바디프렌드', value: '바디프랜드' }
+  ].sort((a, b) => b.search.length - a.search.length);
+
+  const contextStrings: string[] = [];
+
+  [fileName, sheetName].forEach((value) => {
+    if (value && value.trim().length > 0) {
+      contextStrings.push(value);
+    }
+  });
+
+  for (let i = 0; i < headerRowIndex && i < jsonData.length; i++) {
+    const row = jsonData[i];
+    if (!Array.isArray(row)) continue;
+    row.forEach((cell) => {
+      if (typeof cell === 'string' && cell.trim().length > 0) {
+        contextStrings.push(cell);
+      }
+    });
+  }
+
+  const upperBounds = Math.min(jsonData.length, headerRowIndex + 6);
+  for (let i = headerRowIndex + 1; i < upperBounds; i++) {
+    const row = jsonData[i];
+    if (!Array.isArray(row)) continue;
+    row.forEach((cell) => {
+      if (typeof cell === 'string' && cell.trim().length > 0) {
+        contextStrings.push(cell);
+      }
+    });
+  }
+
+  const normalizedContexts = contextStrings.map((value) => value.toLowerCase().replace(/\s+/g, ''));
+
+  for (const { search, value } of brandPatterns) {
+    const normalizedSearch = search.toLowerCase().replace(/\s+/g, '');
+    if (normalizedContexts.some((context) => context.includes(normalizedSearch))) {
+      return value;
+    }
+  }
+
+  for (const context of contextStrings) {
+    const trimmed = context.trim();
+    const match = trimmed.match(/([가-힣A-Za-z]+)\s*제품군/);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+
+  if (contextStrings.length > 0) {
+    const first = contextStrings[0].trim();
+    if (first.length > 0) {
+      return first.split(/\s+/)[0];
+    }
+  }
+
+  return '미상';
+}
+
 // Deterministic fallback mapping when AI fails
 function createFallbackMapping(headers: unknown[]): any {
   console.log('=== FALLBACK MAPPING DEBUG ===');
@@ -929,8 +1079,13 @@ function convertRowToDraft(
       }
       
       // 필드 할당
-      if (['name', 'nameKo', 'brand', 'descriptionKo', 'categoryId'].includes(field)) {
+      if (['name', 'nameKo', 'brand', 'descriptionKo', 'categoryId', 'modelNumber'].includes(field)) {
         draft[field] = transformedValue;
+        if (field === 'nameKo' && mappingInfo.alsoSetName && !draft.name) {
+          draft.name = String(transformedValue);
+        } else if (field === 'name' && mappingInfo.alsoSetNameKo && !draft.nameKo) {
+          draft.nameKo = String(transformedValue);
+        }
       } else if (['monthlyPrice', 'originalPrice', 'rating'].includes(field)) {
         // 가격 필드는 유효한 숫자인 경우에만 할당
         if (typeof transformedValue === 'number' && transformedValue > 0) {
